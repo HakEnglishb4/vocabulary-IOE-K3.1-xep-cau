@@ -1,0 +1,1846 @@
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Một trò chơi tương tác giúp người dùng học tiếng Anh bằng cách nghe câu và sắp xếp các từ theo đúng thứ tự." />
+    <title>Nghe và xếp từ thành câu</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+      body {
+        font-family: 'Nunito', sans-serif;
+      }
+      @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-6px); }
+        75% { transform: translateX(6px); }
+      }
+      .animate-shake {
+        animation: shake 0.5s ease-in-out;
+      }
+      .animate-fade-in {
+        animation: fadeIn 0.5s ease-in-out;
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+    </style>
+</head>
+<body>
+    <noscript>Bạn cần bật JavaScript để chạy ứng dụng này.</noscript>
+    <div id="root"></div>
+
+    <script type="module">
+      import React from 'https://esm.sh/react@18.2.0';
+      import ReactDOM from 'https://esm.sh/react-dom@18.2.0/client';
+
+      const { useState, useCallback, useMemo, useRef, useEffect } = React;
+
+      // --- From types.ts ---
+      const GameState = {
+        Start: 0,
+        TopicSelection: 1,
+        Playing: 2,
+        Congrats: 3,
+      };
+
+      // --- From data/topics.ts ---
+      const topics = {
+        "School Places": [
+            { en: "My school is big.", vi: "Trường của tôi rất to." },
+            { en: "This is my classroom.", vi: "Đây là lớp học của tôi." },
+            { en: "We read books in the library.", vi: "Chúng tôi đọc sách trong thư viện." },
+            { en: "We play in the playground.", vi: "Chúng tôi chơi ở sân chơi." },
+            { en: "The gym is large.", vi: "Phòng thể dục rộng lớn." },
+            { en: "We eat in the canteen.", vi: "Chúng tôi ăn ở căn tin." },
+            { en: "We draw in the art room.", vi: "Chúng tôi vẽ trong phòng mỹ thuật." },
+            { en: "We study in the computer room.", vi: "Chúng tôi học trong phòng máy tính." },
+            { en: "We sing in the music room.", vi: "Chúng tôi hát trong phòng âm nhạc." },
+            { en: "The teachers are in the teacher's room.", vi: "Các giáo viên đang ở phòng giáo viên." },
+            { en: "May I go to the toilet?", vi: "Em có thể đi vệ sinh được không?" },
+            { en: "The school gate is big.", vi: "Cổng trường rất lớn." },
+            { en: "We play in the school yard.", vi: "Chúng tôi chơi ở sân trường." },
+            { en: "Don't run in the corridor!", vi: "Đừng chạy trong hành lang!" },
+            { en: "The head teacher is in her office.", vi: "Cô hiệu trưởng đang ở văn phòng của mình." },
+            { en: "My school is big and beautiful.", vi: "Trường của tôi to và đẹp." },
+            { en: "The playground is behind the school.", vi: "Sân chơi ở phía sau trường." },
+            { en: "We have lunch in the canteen.", vi: "Chúng tôi ăn trưa trong căn tin." },
+            { en: "We use computers in the computer room.", vi: "Chúng tôi dùng máy tính trong phòng máy." },
+            { en: "We do experiments in the science room.", vi: "Chúng tôi làm thí nghiệm trong phòng khoa học." },
+            { en: "The secretary works in the office.", vi: "Cô thư ký làm việc trong văn phòng." },
+            { en: "We have P.E. in the gym.", vi: "Chúng tôi học thể dục trong phòng thể thao." },
+            { en: "The students are at the school gate.", vi: "Học sinh đang ở cổng trường." },
+            { en: "There are flowers in the school garden.", vi: "Có hoa trong vườn trường." },
+            { en: "The classroom door is open.", vi: "Cửa lớp học đang mở." },
+            { en: "The teacher writes on the blackboard.", vi: "Cô giáo viết lên bảng đen." },
+            { en: "The teacher's desk is big.", vi: "Bàn của cô giáo to." },
+            { en: "Look at the notice board.", vi: "Nhìn vào bảng thông báo đi." },
+            { en: "The toilet is next to the canteen.", vi: "Nhà vệ sinh ở cạnh căn tin." },
+            { en: "The classroom is on the first floor.", vi: "Lớp học ở tầng một." },
+            { en: "The playground gate is closed.", vi: "Cổng sân chơi đã đóng." }
+        ],
+        "School Things & Subjects": [
+            { en: "I have a blue pen.", vi: "Tôi có một cây bút màu xanh." },
+            { en: "This is a pencil.", vi: "Đây là một cây bút chì." },
+            { en: "I need an eraser.", vi: "Tôi cần một cục tẩy." },
+            { en: "My ruler is long.", vi: "Thước của tôi dài." },
+            { en: "Open your notebook.", vi: "Mở quyển vở của em ra." },
+            { en: "Close your book.", vi: "Đóng sách của em lại." },
+            { en: "My school bag is red.", vi: "Cặp đi học của tôi màu đỏ." },
+            { en: "The ruler is in the pencil case.", vi: "Thước kẻ ở trong hộp bút." },
+            { en: "Give me a crayon, please.", vi: "Làm ơn đưa tôi một cây bút sáp màu." },
+            { en: "Draw on the paper.", vi: "Vẽ lên tờ giấy." },
+            { en: "I need a sharpener.", vi: "Tôi cần một đồ gọt bút chì." },
+            { en: "Use some glue.", vi: "Dùng một ít keo dán đi." },
+            { en: "Cut it with scissors.", vi: "Cắt nó bằng kéo nhé." },
+            { en: "There is a clock on the wall.", vi: "Có một cái đồng hồ trên tường." },
+            { en: "This is a map of Vietnam.", vi: "Đây là bản đồ Việt Nam." },
+            { en: "Look at the board.", vi: "Nhìn lên bảng đi." },
+            { en: "The teacher writes with chalk.", vi: "Cô giáo viết bằng phấn." },
+            { en: "Clean the board with the duster.", vi: "Lau bảng bằng giẻ lau." },
+            { en: "I wear my school uniform every day.", vi: "Tôi mặc đồng phục đi học mỗi ngày." },
+            { en: "This is my desk.", vi: "Đây là bàn học của tôi." },
+            { en: "That chair is for the teacher.", vi: "Cái ghế đó dành cho cô giáo." },
+            { en: "There are many books in the bookcase.", vi: "Có nhiều sách trong tủ sách." },
+            { en: "I look at my timetable every morning.", vi: "Tôi xem thời khóa biểu mỗi sáng." },
+            { en: "My backpack is heavy.", vi: "Cặp đeo lưng của tôi nặng." },
+            { en: "I write with my pen.", vi: "Tôi viết bằng bút." },
+            { en: "The eraser is on the desk.", vi: "Cục tẩy ở trên bàn học." },
+            { en: "I read a book every day.", vi: "Tôi đọc sách mỗi ngày." },
+            { en: "This is my notebook.", vi: "Đây là quyển vở của tôi." },
+            { en: "I draw on a piece of paper.", vi: "Tôi vẽ trên tờ giấy." },
+            { en: "My school bag is new.", vi: "Cặp sách của tôi mới." },
+            { en: "My schoolbag is blue.", vi: "Cặp của tôi màu xanh." },
+            { en: "The desk is brown.", vi: "Bàn học màu nâu." },
+            { en: "The chair is next to the desk.", vi: "Cái ghế ở cạnh bàn." },
+            { en: "There are books on the table.", vi: "Có sách ở trên bàn." },
+            { en: "My pencil case is red.", vi: "Hộp bút của tôi màu đỏ." },
+            { en: "I color with crayons.", vi: "Tôi tô màu bằng bút sáp." },
+            { en: "I draw with color pencils.", vi: "Tôi vẽ bằng bút chì màu." },
+            { en: "I cut paper with scissors.", vi: "Tôi cắt giấy bằng kéo." },
+            { en: "I use glue to stick paper.", vi: "Tôi dùng keo để dán giấy." },
+            { en: "There's a map on the wall.", vi: "Có bản đồ trên tường." },
+            { en: "The clock is in the classroom.", vi: "Đồng hồ ở trong lớp học." },
+            { en: "There's a computer on the teacher's desk.", vi: "Có máy tính trên bàn giáo viên." },
+            { en: "The blackboard is clean.", vi: "Bảng đen sạch." },
+            { en: "The teacher writes on the whiteboard.", vi: "Cô giáo viết lên bảng trắng." },
+            { en: "There's a picture on the wall.", vi: "Có bức tranh trên tường." },
+            { en: "We wear our school uniform.", vi: "Chúng tôi mặc đồng phục trường." },
+            { en: "The bag strap is broken.", vi: "Quai cặp bị đứt." },
+            { en: "Clean the board, please.", vi: "Làm ơn lau bảng." },
+            { en: "Put your bag on the table.", vi: "Đặt cặp của em lên bàn." },
+            { en: "I have a pink bag.", vi: "Tôi có một cái cặp màu hồng." },
+            { en: "My pencil case is blue.", vi: "Hộp bút của tôi màu xanh." },
+            { en: "I use an eraser to rub out.", vi: "Tôi dùng cục tẩy để xóa." },
+            { en: "I have a long ruler.", vi: "Tôi có một cây thước dài." },
+            { en: "I write in my notebook.", vi: "Tôi viết trong vở của mình." },
+            { en: "This is my English textbook.", vi: "Đây là sách giáo khoa tiếng Anh của tôi." },
+            { en: "I like my storybook.", vi: "Tôi thích quyển truyện của mình." },
+            { en: "I need a sharpener for my pencil.", vi: "Tôi cần gọt bút chì." },
+            { en: "I draw with crayons.", vi: "Tôi vẽ bằng bút sáp màu." },
+            { en: "I have many color pencils.", vi: "Tôi có nhiều bút chì màu." },
+            { en: "Don't run with scissors.", vi: "Đừng chạy với cây kéo." },
+            { en: "Give me a piece of paper.", vi: "Cho tôi một tờ giấy." },
+            { en: "My favorite subject is English.", vi: "Môn học yêu thích của tôi là tiếng Anh." },
+            { en: "I like Math.", vi: "Tôi thích Toán học." },
+            { en: "I study English every day.", vi: "Tôi học tiếng Anh mỗi ngày." },
+            { en: "We read Vietnamese stories.", vi: "Chúng tôi đọc truyện tiếng Việt." },
+            { en: "We learn about plants in Science.", vi: "Chúng tôi học về cây trong môn Khoa học." },
+            { en: "We sing in Music class.", vi: "Chúng tôi hát trong tiết Âm nhạc." },
+            { en: "I draw in Art class.", vi: "Tôi vẽ trong tiết Mỹ thuật." },
+            { en: "We play football in P.E.", vi: "Chúng tôi chơi bóng đá trong tiết Thể dục." },
+            { en: "We use computers in IT.", vi: "Chúng tôi dùng máy tính trong môn Tin học." },
+            { en: "We learn about kings in History.", vi: "Chúng tôi học về các vị vua trong môn Lịch sử." },
+            { en: "We study maps in Geography.", vi: "Chúng tôi học bản đồ trong môn Địa lý." },
+            { en: "Our English teacher is nice.", vi: "Cô giáo tiếng Anh của chúng tôi rất dễ thương." },
+            { en: "My classmates are friendly.", vi: "Các bạn cùng lớp của tôi rất thân thiện." },
+            { en: "We have four lessons today.", vi: "Hôm nay chúng tôi có bốn tiết học." },
+            { en: "I do my homework after school.", vi: "Tôi làm bài tập về nhà sau giờ học." },
+            { en: "We have a test on Monday.", vi: "Chúng tôi có bài kiểm tra vào thứ Hai." },
+            { en: "I study for my exam.", vi: "Tôi học cho kỳ thi." },
+            { en: "I study hard at school.", vi: "Tôi học chăm chỉ ở trường." }
+        ],
+        "People at School": [
+            { en: "My teacher is kind.", vi: "Cô giáo của tôi rất tốt bụng." },
+            { en: "I am a student.", vi: "Tôi là một học sinh." },
+            { en: "This is my classmate, Nam.", vi: "Đây là bạn cùng lớp của tôi, Nam." },
+            { en: "The head teacher is very friendly.", vi: "Cô hiệu trưởng rất thân thiện." },
+            { en: "The class monitor is helpful.", vi: "Lớp trưởng rất hay giúp đỡ." },
+            { en: "He is my best friend.", vi: "Cậu ấy là bạn thân nhất của tôi." },
+            { en: "The librarian works in the library.", vi: "Cô thủ thư làm việc ở thư viện." },
+            { en: "The janitor cleans the classroom.", vi: "Chú lao công dọn dẹp lớp học." },
+            { en: "The nurse helps sick students.", vi: "Cô y tá giúp đỡ học sinh bị bệnh." },
+            { en: "The guard opens the school gate.", vi: "Chú bảo vệ mở cổng trường." },
+            { en: "The principal talks to parents.", vi: "Hiệu trưởng nói chuyện với phụ huynh." },
+            { en: "Our PE teacher is tall.", vi: "Thầy giáo thể dục của chúng tôi cao." },
+            { en: "The music teacher plays the guitar.", vi: "Cô giáo dạy nhạc chơi đàn ghi-ta." },
+            { en: "The art teacher teaches us to draw.", vi: "Cô dạy mỹ thuật dạy chúng tôi vẽ." },
+            { en: "My English teacher is Miss Hoa.", vi: "Cô giáo dạy tiếng Anh của tôi là cô Hoa." },
+            { en: "Our science teacher is funny.", vi: "Cô giáo dạy khoa học rất vui tính." },
+            { en: "The math teacher gives us homework.", vi: "Thầy dạy toán giao bài tập cho chúng tôi." },
+            { en: "I have many classmates.", vi: "Tôi có nhiều bạn cùng lớp." },
+            { en: "The school staff are very kind.", vi: "Nhân viên trong trường rất tốt." }
+        ],
+        "Classroom Instructions": [
+            { en: "Stand up, please.", vi: "Làm ơn đứng lên." },
+            { en: "Sit down, please.", vi: "Làm ơn ngồi xuống." },
+            { en: "Open your book to page five.", vi: "Mở sách của em ra trang năm." },
+            { en: "Close your book, please.", vi: "Đóng sách của em lại." },
+            { en: "Listen to the teacher.", vi: "Nghe cô giáo nói." },
+            { en: "Look at the board.", vi: "Nhìn lên bảng." },
+            { en: "Read the sentence, please.", vi: "Hãy đọc câu này nhé." },
+            { en: "Write your name.", vi: "Viết tên của em." },
+            { en: "How do you spell your name?", vi: "Em đánh vần tên mình như thế nào?" },
+            { en: "Repeat after me.", vi: "Nhắc lại theo cô nhé." },
+            { en: "Point to the picture.", vi: "Chỉ vào bức tranh." },
+            { en: "Raise your hand, please.", vi: "Giơ tay lên nhé." },
+            { en: "Be quiet, please.", vi: "Hãy giữ im lặng." },
+            { en: "Clean the board, please.", vi: "Lau bảng đi nhé." },
+            { en: "Show me your picture.", vi: "Cho cô xem bức tranh của em." },
+            { en: "Give me your pencil, please.", vi: "Đưa cho cô cây bút chì của em." },
+            { en: "Draw a cat, please.", vi: "Hãy vẽ một con mèo nhé." },
+            { en: "Circle the correct word.", vi: "Khoanh tròn từ đúng." },
+            { en: "Underline the right answer.", vi: "Gạch dưới đáp án đúng." },
+            { en: "Match the words with the pictures.", vi: "Nối từ với hình ảnh tương ứng." },
+            { en: "Color the picture red.", vi: "Tô bức tranh màu đỏ." },
+            { en: "Clap your hands, please.", vi: "Hãy vỗ tay nhé." },
+            { en: "Let's sing a song.", vi: "Hãy cùng hát một bài hát." },
+            { en: "Let's dance together.", vi: "Hãy cùng nhau nhảy nhé." },
+            { en: "Count from one to ten.", vi: "Đếm từ một đến mười." },
+            { en: "Say it in English.", vi: "Nói điều đó bằng tiếng Anh." },
+            { en: "Close the door, please.", vi: "Đóng cửa lại nhé." },
+            { en: "Open the window, please.", vi: "Mở cửa sổ ra nhé." },
+            { en: "Let's tidy up the classroom.", vi: "Hãy cùng dọn dẹp lớp học nhé." },
+            { en: "Don't talk in class!", vi: "Đừng nói chuyện trong lớp!" }
+        ],
+        "Greetings, Introductions & Farewells": [
+            { en: "Hello, my name is Nam.", vi: "Xin chào, tôi tên là Nam." },
+            { en: "Hi, how are you?", vi: "Chào, bạn khỏe không?" },
+            { en: "Good morning, teacher!", vi: "Chào buổi sáng, cô giáo!" },
+            { en: "Good afternoon, Miss Hoa.", vi: "Chào buổi chiều, cô Hoa." },
+            { en: "Good evening, everyone.", vi: "Chào buổi tối, mọi người." },
+            { en: "Nice to meet you, Mai.", vi: "Rất vui được gặp bạn, Mai." },
+            { en: "How are you today?", vi: "Hôm nay bạn khỏe không?" },
+            { en: "I'm fine, thank you.", vi: "Tôi khỏe, cảm ơn bạn." },
+            { en: "What's your name?", vi: "Bạn tên là gì?" },
+            { en: "My name is Linh.", vi: "Tên tôi là Linh." },
+            { en: "How old are you?", vi: "Bạn bao nhiêu tuổi?" },
+            { en: "I'm eight years old.", vi: "Tôi tám tuổi." },
+            { en: "Where are you from?", vi: "Bạn đến từ đâu?" },
+            { en: "I'm from Vietnam.", vi: "Tôi đến từ Việt Nam." },
+            { en: "Who's that girl?", vi: "Cô gái kia là ai vậy?" },
+            { en: "That's my friend, Hoa.", vi: "Đó là bạn của tôi, Hoa." },
+            { en: "Meet my friend, Nam.", vi: "Đây là bạn của tôi, Nam." },
+            { en: "This is my teacher.", vi: "Đây là cô giáo của tôi." },
+            { en: "Welcome to our school!", vi: "Chào mừng đến trường của chúng tôi!" },
+            { en: "See you soon!", vi: "Gặp bạn sớm nhé!" },
+            { en: "Goodbye, see you tomorrow!", vi: "Tạm biệt, hẹn gặp bạn vào ngày mai!" },
+            { en: "Bye, Nam!", vi: "Tạm biệt, Nam!" },
+            { en: "See you later!", vi: "Gặp lại bạn sau nhé!" },
+            { en: "See you tomorrow, Mai!", vi: "Gặp lại bạn vào ngày mai, Mai nhé!" },
+            { en: "Good night, Mom.", vi: "Chúc mẹ ngủ ngon." },
+            { en: "Have a nice day!", vi: "Chúc bạn một ngày tốt lành!" },
+            { en: "Take care, my friend.", vi: "Giữ gìn sức khỏe nhé, bạn tôi." },
+            { en: "I have to go now.", vi: "Tôi phải đi bây giờ." },
+            { en: "I'll miss you a lot.", vi: "Tôi sẽ nhớ bạn nhiều." },
+            { en: "It's time to go home.", vi: "Đến giờ về nhà rồi." },
+            { en: "Hope to see you again.", vi: "Hy vọng gặp lại bạn." },
+            { en: "Have fun at the party!", vi: "Chúc vui vẻ ở bữa tiệc nhé!" },
+            { en: "Bye-bye, children!", vi: "Tạm biệt các con nhé!" },
+            { en: "Until next time, teacher!", vi: "Hẹn gặp lại cô lần sau!" },
+            { en: "Catch you later, Tom!", vi: "Gặp lại cậu sau nhé, Tom!" },
+            { en: "Have a good evening!", vi: "Chúc buổi tối vui vẻ nhé!" },
+            { en: "I'm leaving now.", vi: "Tôi đi bây giờ đây." },
+            { en: "Have a safe trip!", vi: "Chúc bạn đi đường bình an!" },
+            { en: "Bye for now!", vi: "Tạm biệt nhé, hẹn gặp lại!" }
+        ],
+        "Asking for Permission": [
+            { en: "May I come in?", vi: "Em có thể vào lớp được không?" },
+            { en: "Can I sit here?", vi: "Em có thể ngồi ở đây không?" },
+            { en: "May I borrow your pen, please?", vi: "Em có thể mượn bút của bạn được không, làm ơn?" },
+            { en: "May I come in, teacher?", vi: "Thưa cô, em có thể vào không ạ?" },
+            { en: "May I go out?", vi: "Em có thể ra ngoài không?" },
+            { en: "May I go to the toilet, please?", vi: "Em có thể đi vệ sinh được không, cô?" },
+            { en: "Can I sit down, please?", vi: "Em có thể ngồi xuống được không, làm ơn?" },
+            { en: "Can I stand up now?", vi: "Em có thể đứng dậy bây giờ không?" },
+            { en: "Can I open the door?", vi: "Em có thể mở cửa không?" },
+            { en: "May I close the window?", vi: "Em có thể đóng cửa sổ được không?" },
+            { en: "May I borrow your ruler?", vi: "Em có thể mượn thước của bạn được không?" },
+            { en: "Can you lend me your book?", vi: "Bạn có thể cho mình mượn sách không?" },
+            { en: "Can I use your pencil?", vi: "Em có thể dùng bút của bạn không?" },
+            { en: "Can I answer the question?", vi: "Em có thể trả lời câu hỏi không?" },
+            { en: "Can you help me, please?", vi: "Bạn có thể giúp mình được không?" },
+            { en: "May I go home now?", vi: "Em có thể về nhà bây giờ không ạ?" },
+            { en: "Can I eat my snack now?", vi: "Em có thể ăn bánh của em bây giờ không?" },
+            { en: "May I drink some water?", vi: "Em có thể uống chút nước không?" },
+            { en: "Can we play now?", vi: "Chúng ta có thể chơi bây giờ không?" },
+            { en: "Yes, you can.", vi: "Vâng, em có thể." },
+            { en: "No, you can't.", vi: "Không, em không được phép." }
+        ],
+        "Feelings & Emotions": [
+            { en: "I'm fine, thank you.", vi: "Em khỏe, cảm ơn cô." },
+            { en: "I'm great today!", vi: "Hôm nay em rất tuyệt!" },
+            { en: "I'm okay, thanks.", vi: "Em ổn, cảm ơn." },
+            { en: "I'm not bad, thanks.", vi: "Em không tệ, cảm ơn." },
+            { en: "I'm so-so today.", vi: "Hôm nay em bình thường thôi." },
+            { en: "I'm happy today.", vi: "Hôm nay em rất vui." },
+            { en: "She's sad because she lost her toy.", vi: "Cô ấy buồn vì bị mất đồ chơi." },
+            { en: "He's angry with his brother.", vi: "Anh ấy giận em trai của mình." },
+            { en: "I'm tired after school.", vi: "Em mệt sau giờ học." },
+            { en: "I'm hungry. Let's eat lunch!", vi: "Em đói rồi. Cùng ăn trưa đi!" },
+            { en: "I'm thirsty. Can I have some water?", vi: "Em khát rồi. Em có thể uống nước không?" },
+            { en: "The child is scared of the dog.", vi: "Đứa bé sợ con chó." },
+            { en: "I'm excited to play football.", vi: "Em háo hức được chơi bóng đá." },
+            { en: "She's worried about the test.", vi: "Cô ấy lo lắng về bài kiểm tra." },
+            { en: "He's bored with this game.", vi: "Cậu ấy chán trò chơi này." },
+            { en: "I'm surprised to see you here!", vi: "Em ngạc nhiên khi gặp bạn ở đây!" },
+            { en: "I'm hot. Can I open the window?", vi: "Em nóng quá. Em có thể mở cửa sổ không?" },
+            { en: "I'm cold. Can I wear my jacket?", vi: "Em lạnh quá. Em có thể mặc áo khoác không?" },
+            { en: "I'm sick. I can't go to school.", vi: "Em bị ốm. Em không thể đến trường." },
+            { en: "I'm sleepy. I want to go to bed.", vi: "Em buồn ngủ. Em muốn đi ngủ." },
+            { en: "I feel wonderful today.", vi: "Hôm nay em cảm thấy thật tuyệt." },
+            { en: "He's nervous before the test.", vi: "Cậu ấy lo lắng trước khi kiểm tra." },
+            { en: "I'm great, thanks.", vi: "Em rất tuyệt, cảm ơn." },
+            { en: "I'm not very well today.", vi: "Hôm nay em không khỏe lắm." },
+            { en: "How are you feeling today?", vi: "Hôm nay bạn cảm thấy thế nào?" },
+            { en: "Happiness is a good emotion.", vi: "Hạnh phúc là một cảm xúc tốt." },
+            { en: "She is sad because it's raining.", vi: "Cô ấy buồn vì trời mưa." },
+            { en: "He is angry with his friend.", vi: "Cậu ấy tức giận với bạn mình." },
+            { en: "I'm sleepy at night.", vi: "Tôi buồn ngủ vào ban đêm." },
+            { en: "I'm hungry. Let's eat!", vi: "Tôi đói rồi. Đi ăn thôi!" },
+            { en: "I'm thirsty.", vi: "Tôi khát." },
+            { en: "I feel hot today.", vi: "Hôm nay tôi cảm thấy nóng." },
+            { en: "I'm cold.", vi: "Tôi lạnh." },
+            { en: "The boy is scared of the dog.", vi: "Cậu bé sợ con chó." },
+            { en: "Don't be afraid of the dark.", vi: "Đừng sợ bóng tối." },
+            { en: "She is surprised to see you.", vi: "Cô ấy ngạc nhiên khi thấy bạn." },
+            { en: "The children are excited about the trip.", vi: "Bọn trẻ háo hức về chuyến đi." },
+            { en: "I'm bored. Let's play a game!", vi: "Tôi chán rồi. Chơi trò gì đi!" },
+            { en: "I'm nervous before the test.", vi: "Tôi lo lắng trước khi kiểm tra." },
+            { en: "She is worried about her exam.", vi: "Cô ấy lo lắng về bài thi." },
+            { en: "I'm okay now.", vi: "Tôi ổn rồi." },
+            { en: "I'm glad to see you.", vi: "Tôi vui khi gặp bạn." },
+            { en: "I'm proud of my family.", vi: "Tôi tự hào về gia đình mình." },
+            { en: "He feels lonely at home.", vi: "Cậu ấy cảm thấy cô đơn ở nhà." },
+            { en: "She feels calm and relaxed.", vi: "Cô ấy thấy bình tĩnh và thoải mái." },
+            { en: "I feel relaxed on Sunday.", vi: "Tôi thấy thư giãn vào Chủ nhật." },
+            { en: "My mom is very busy today.", vi: "Mẹ tôi hôm nay rất bận." },
+            { en: "My leg hurts.", vi: "Chân tôi bị đau." },
+            { en: "I'm healthy because I play sports.", vi: "Tôi khỏe mạnh vì tôi chơi thể thao." },
+            { en: "The girl is shy in class.", vi: "Cô bé ngại ngùng trong lớp." },
+            { en: "My teacher is friendly.", vi: "Cô giáo của tôi thân thiện." },
+            { en: "He's helpful to his friends.", vi: "Cậu ấy giúp đỡ bạn bè." },
+            { en: "She is kind to animals.", vi: "Cô ấy tốt bụng với động vật." },
+            { en: "Be polite to your teacher.", vi: "Hãy lịch sự với cô giáo." },
+            { en: "Don't be rude!", vi: "Đừng thô lỗ!" },
+            { en: "The boy is brave.", vi: "Cậu bé rất dũng cảm." },
+            { en: "Be careful! The floor is wet.", vi: "Cẩn thận nhé! Sàn trơn đó." },
+            { en: "Don't be lazy!", vi: "Đừng lười biếng!" },
+            { en: "She is cheerful every day.", vi: "Cô ấy vui tươi mỗi ngày." },
+            { en: "He's upset because he lost his toy.", vi: "Cậu ấy buồn vì làm mất đồ chơi." },
+            { en: "I'm disappointed with my test result.", vi: "Tôi thất vọng về kết quả bài kiểm tra." },
+            { en: "The boy is jealous of his brother.", vi: "Cậu bé ghen tị với anh trai." },
+            { en: "I'm thankful for your help.", vi: "Tôi biết ơn sự giúp đỡ của bạn." },
+            { en: "She's grateful to her parents.", vi: "Cô ấy biết ơn bố mẹ." },
+            { en: "I'm confident when I speak English.", vi: "Tôi tự tin khi nói tiếng Anh." },
+            { en: "The child is curious about animals.", vi: "Đứa trẻ tò mò về các con vật." },
+            { en: "The clown is funny.", vi: "Chú hề rất hài hước." },
+            { en: "He looks serious today.", vi: "Hôm nay cậu ấy trông nghiêm túc." }
+        ],
+        "Family & Relationships": [
+            { en: "This is my family.", vi: "Đây là gia đình của tôi." },
+            { en: "My father is a teacher.", vi: "Bố tôi là một giáo viên." },
+            { en: "My mother is very kind.", vi: "Mẹ tôi rất tốt bụng." },
+            { en: "My dad is at work.", vi: "Bố tôi đang làm việc." },
+            { en: "My mom cooks very well.", vi: "Mẹ tôi nấu ăn rất ngon." },
+            { en: "My parents are at home.", vi: "Bố mẹ tôi đang ở nhà." },
+            { en: "This is my sister.", vi: "Đây là chị (hoặc em) gái của tôi." },
+            { en: "I have one brother.", vi: "Tôi có một anh/em trai." },
+            { en: "The baby is sleeping.", vi: "Em bé đang ngủ." },
+            { en: "My grandfather is old.", vi: "Ông tôi đã già." },
+            { en: "My grandmother is in the kitchen.", vi: "Bà tôi đang ở trong bếp." },
+            { en: "Grandpa is watching TV.", vi: "Ông đang xem ti vi." },
+            { en: "Grandma is cooking dinner.", vi: "Bà đang nấu bữa tối." },
+            { en: "My uncle lives in Hanoi.", vi: "Chú tôi sống ở Hà Nội." },
+            { en: "My aunt is a doctor.", vi: "Cô tôi là bác sĩ." },
+            { en: "My cousin is nine years old.", vi: "Anh họ của tôi 9 tuổi." },
+            { en: "Their son is a student.", vi: "Con trai của họ là học sinh." },
+            { en: "Their daughter is very smart.", vi: "Con gái của họ rất thông minh." },
+            { en: "My father is my mother's husband.", vi: "Bố tôi là chồng của mẹ tôi." },
+            { en: "My mother is my father's wife.", vi: "Mẹ tôi là vợ của bố tôi." },
+            { en: "They are twins.", vi: "Họ là anh em sinh đôi." },
+            { en: "Who's this? - This is my mother.", vi: "Đây là ai vậy? – Đây là mẹ tôi." },
+            { en: "Who's that man? – That's my uncle.", vi: "Người đàn ông kia là ai vậy? – Là chú tôi." },
+            { en: "This is my brother.", vi: "Đây là anh trai của tôi." },
+            { en: "That's my father.", vi: "Kia là bố tôi." },
+            { en: "I love my family.", vi: "Tôi yêu gia đình của mình." },
+            { en: "I live with my family.", vi: "Tôi sống cùng gia đình." },
+            { en: "My parents are teachers.", vi: "Bố mẹ tôi là giáo viên." },
+            { en: "My father is tall.", vi: "Bố tôi cao." },
+            { en: "My dad works in a bank.", vi: "Bố tôi làm việc trong ngân hàng." },
+            { en: "They have one son.", vi: "Họ có một con trai." },
+            { en: "She has two daughters.", vi: "Cô ấy có hai con gái." },
+            { en: "My brother is ten years old.", vi: "Em trai tôi 10 tuổi." },
+            { en: "My sister is in grade 5.", vi: "Chị tôi học lớp 5." },
+            { en: "I visit my grandpa on Sunday.", vi: "Tôi thăm ông vào Chủ nhật." },
+            { en: "My grandmother is nice.", vi: "Bà tôi rất tốt." },
+            { en: "My grandma makes cakes.", vi: "Bà tôi làm bánh." },
+            { en: "My aunt is a nurse.", vi: "Dì tôi là y tá." },
+            { en: "My cousin is my uncle's son.", vi: "Anh họ tôi là con trai của chú tôi." },
+            { en: "My nephew is very cute.", vi: "Cháu trai tôi rất dễ thương." },
+            { en: "My niece likes dolls.", vi: "Cháu gái tôi thích búp bê." },
+            { en: "I live with my parents-in-law.", vi: "Tôi sống với bố mẹ chồng/vợ." },
+            { en: "There are five family members.", vi: "Có 5 thành viên trong gia đình." },
+            { en: "We visit our relatives at Tet.", vi: "Chúng tôi thăm họ hàng vào Tết." },
+            { en: "The twins are very cute.", vi: "Cặp sinh đôi rất dễ thương." },
+            { en: "He's an only child.", vi: "Cậu ấy là con một." },
+            { en: "I love my grandparents.", vi: "Tôi yêu ông bà của mình." },
+            { en: "We visit our parents' house.", vi: "Chúng tôi đến thăm nhà bố mẹ." },
+            { en: "Let's draw a family tree.", vi: "Hãy vẽ cây gia đình nhé." },
+            { en: "There are three generations in my family.", vi: "Gia đình tôi có ba thế hệ." },
+            { en: "My home is small but nice.", vi: "Nhà tôi nhỏ nhưng đẹp." },
+            { en: "I love my parents very much.", vi: "Tôi rất yêu bố mẹ." },
+            { en: "My parents care for me.", vi: "Bố mẹ chăm sóc tôi." },
+            { en: "I help my mother at home.", vi: "Tôi giúp mẹ làm việc nhà." },
+            { en: "I respect my teachers and parents.", vi: "Tôi tôn trọng thầy cô và cha mẹ." },
+            { en: "We share toys together.", vi: "Chúng tôi chia sẻ đồ chơi với nhau." },
+            { en: "I play with my sister.", vi: "Tôi chơi với em gái." },
+            { en: "I talk to my mom every evening.", vi: "Tôi nói chuyện với mẹ mỗi tối." },
+            { en: "We visit our grandparents on weekends.", vi: "Chúng tôi thăm ông bà vào cuối tuần." },
+            { en: "We eat dinner together.", vi: "Chúng tôi ăn tối cùng nhau." },
+            { en: "We live in a small house.", vi: "Chúng tôi sống trong một ngôi nhà nhỏ." },
+            { en: "I do housework on Sunday.", vi: "Tôi làm việc nhà vào Chủ nhật." },
+            { en: "My father's birthday is in March.", vi: "Sinh nhật của bố tôi vào tháng Ba." },
+            { en: "I give a present to my mom.", vi: "Tôi tặng quà cho mẹ." },
+            { en: "This is a photo of my family.", vi: "Đây là bức ảnh gia đình tôi." },
+            { en: "I visit my relatives on Tet holiday.", vi: "Tôi thăm họ hàng vào dịp Tết." }
+        ],
+        "Describing People": [
+            { en: "He's tall and strong.", vi: "Cậu ấy cao và khỏe." },
+            { en: "She's short but cute.", vi: "Cô ấy thấp nhưng dễ thương." },
+            { en: "He has a big body.", vi: "Anh ấy có thân hình to lớn." },
+            { en: "She has small hands.", vi: "Cô ấy có bàn tay nhỏ." },
+            { en: "The man is fat.", vi: "Người đàn ông đó mập." },
+            { en: "My sister is thin.", vi: "Chị gái tôi gầy." },
+            { en: "He's strong and tall.", vi: "Anh ấy khỏe mạnh và cao." },
+            { en: "The boy is weak.", vi: "Cậu bé đó yếu." },
+            { en: "My mother is beautiful.", vi: "Mẹ tôi đẹp." },
+            { en: "She's very pretty.", vi: "Cô ấy rất xinh." },
+            { en: "My father is handsome.", vi: "Bố tôi đẹp trai." },
+            { en: "My grandfather is old.", vi: "Ông tôi đã già." },
+            { en: "My sister is young.", vi: "Em gái tôi còn trẻ." },
+            { en: "He's clever at maths.", vi: "Cậu ấy giỏi toán." },
+            { en: "My teacher is kind.", vi: "Cô giáo tôi rất tốt bụng." },
+            { en: "She's friendly and nice.", vi: "Cô ấy thân thiện và tốt." },
+            { en: "He's very funny.", vi: "Cậu ấy rất vui tính." },
+            { en: "My friend is nice.", vi: "Bạn tôi rất dễ mến." },
+            { en: "She has long black hair.", vi: "Cô ấy có mái tóc dài màu đen." },
+            { en: "She has long hair.", vi: "Cô ấy có tóc dài." },
+            { en: "He has short hair.", vi: "Cậu ấy có tóc ngắn." },
+            { en: "She has curly hair.", vi: "Cô ấy có tóc xoăn." },
+            { en: "I have straight hair.", vi: "Tôi có tóc thẳng." },
+            { en: "She has black hair.", vi: "Cô ấy có tóc đen." },
+            { en: "He has brown hair.", vi: "Cậu ấy có tóc nâu." },
+            { en: "He has big eyes.", vi: "Cậu ấy có đôi mắt to." },
+            { en: "She has big eyes.", vi: "Cô ấy có mắt to." },
+            { en: "He has small eyes.", vi: "Cậu ấy có mắt nhỏ." },
+            { en: "His nose is small.", vi: "Mũi của cậu ấy nhỏ." },
+            { en: "She has a big mouth.", vi: "Cô ấy có cái miệng to." },
+            { en: "Her teeth are white.", vi: "Răng của cô ấy trắng." },
+            { en: "His ears are big.", vi: "Tai của cậu ấy to." },
+            { en: "She has a round face.", vi: "Cô ấy có khuôn mặt tròn." },
+            { en: "He has a thin face.", vi: "Cậu ấy có khuôn mặt gầy." }
+        ],
+        "Talking About Friends": [
+            { en: "He is my best friend.", vi: "Cậu ấy là bạn thân nhất của tôi." },
+            { en: "Mai is my best friend.", vi: "Mai là bạn thân của tôi." },
+            { en: "Nam is my classmate.", vi: "Nam là bạn cùng lớp của tôi." },
+            { en: "She is my close friend.", vi: "Cô ấy là bạn thân thiết của tôi." },
+            { en: "That boy is my friend.", vi: "Cậu bé đó là bạn của tôi." },
+            { en: "The girl is very nice.", vi: "Cô bé đó rất dễ thương." },
+            { en: "He is very funny.", vi: "Cậu ấy rất vui tính." },
+            { en: "She is kind and friendly.", vi: "Cô ấy tốt bụng và thân thiện." },
+            { en: "They are my friends.", vi: "Họ là bạn của tôi." },
+            { en: "We play together after school.", vi: "Chúng tôi chơi cùng nhau sau giờ học." },
+            { en: "We play football together.", vi: "Chúng tôi chơi bóng đá cùng nhau." },
+            { en: "We study English together.", vi: "Chúng tôi học tiếng Anh cùng nhau." },
+            { en: "We sing English songs.", vi: "Chúng tôi hát các bài hát tiếng Anh." },
+            { en: "We talk about our homework.", vi: "Chúng tôi nói chuyện về bài tập." },
+            { en: "We laugh a lot.", vi: "Chúng tôi cười rất nhiều." },
+            { en: "I help my friend with homework.", vi: "Tôi giúp bạn tôi làm bài tập." },
+            { en: "We share our toys.", vi: "Chúng tôi chia sẻ đồ chơi với nhau." },
+            { en: "He's very kind to everyone.", vi: "Cậu ấy rất tốt với mọi người." },
+            { en: "She's friendly to new students.", vi: "Cô ấy thân thiện với học sinh mới." },
+            { en: "He tells funny stories.", vi: "Cậu ấy kể những câu chuyện vui." },
+            { en: "She's a nice girl.", vi: "Cô bé đó rất dễ thương." },
+            { en: "My friend is very helpful.", vi: "Bạn tôi rất hay giúp đỡ người khác." },
+            { en: "He's clever at maths.", vi: "Cậu ấy giỏi toán." },
+            { en: "She's talkative but friendly.", vi: "Cô ấy hay nói nhưng thân thiện." },
+            { en: "He's quiet and kind.", vi: "Cậu ấy trầm tính và tốt bụng." },
+            { en: "My best friend is tall.", vi: "Bạn thân của tôi cao." },
+            { en: "My friend is short but funny.", vi: "Bạn tôi thấp nhưng vui tính." },
+            { en: "We are in the same class.", vi: "Chúng tôi học cùng lớp." },
+            { en: "We are in the same school.", vi: "Chúng tôi học cùng trường." },
+            { en: "We go to school together.", vi: "Chúng tôi đi học cùng nhau." },
+            { en: "I like my friend very much.", vi: "Tôi rất thích bạn tôi." },
+            { en: "I love my friends.", vi: "Tôi yêu quý bạn bè của mình." }
+        ],
+        "Daily Activities": [
+            { en: "I get up at six o'clock.", vi: "Tôi dậy lúc sáu giờ." },
+            { en: "I wake up early every day.", vi: "Tôi thức dậy sớm mỗi ngày." },
+            { en: "I wash my face in the morning.", vi: "Tôi rửa mặt vào buổi sáng." },
+            { en: "I brush my teeth after breakfast.", vi: "Tôi đánh răng sau bữa sáng." },
+            { en: "I have breakfast with my family.", vi: "Tôi ăn sáng cùng gia đình." },
+            { en: "I go to school at seven o'clock.", vi: "Tôi đi học lúc bảy giờ." },
+            { en: "I go home at five o'clock.", vi: "Tôi về nhà lúc năm giờ." },
+            { en: "I have lunch at school.", vi: "Tôi ăn trưa ở trường." },
+            { en: "We have dinner at seven.", vi: "Chúng tôi ăn tối lúc bảy giờ." },
+            { en: "I do my homework in the evening.", vi: "Tôi làm bài tập vào buổi tối." },
+            { en: "I watch TV after dinner.", vi: "Tôi xem ti vi sau bữa tối." },
+            { en: "I read books before bed.", vi: "Tôi đọc sách trước khi đi ngủ." },
+            { en: "I play games with my friends.", vi: "Tôi chơi trò chơi với bạn bè." },
+            { en: "I go to bed at nine.", vi: "Tôi đi ngủ lúc chín giờ." },
+            { en: "I take a shower every evening.", vi: "Tôi tắm vào mỗi buổi tối." },
+            { en: "I clean my room on Sunday.", vi: "Tôi dọn phòng vào Chủ nhật." },
+            { en: "My mom and I go shopping.", vi: "Mẹ tôi và tôi đi mua sắm." },
+            { en: "I listen to music every day.", vi: "Tôi nghe nhạc mỗi ngày." },
+            { en: "I play football in the afternoon.", vi: "Tôi chơi bóng đá vào buổi chiều." },
+            { en: "I feed the dog in the morning.", vi: "Tôi cho chó ăn vào buổi sáng." },
+            { en: "I water the plants every evening.", vi: "Tôi tưới cây mỗi buổi tối." },
+            { en: "I help my mom in the kitchen.", vi: "Tôi giúp mẹ trong bếp." },
+            { en: "I tidy up my desk after studying.", vi: "Tôi dọn bàn học sau khi học." },
+            { en: "I get dressed before breakfast.", vi: "Tôi mặc quần áo trước khi ăn sáng." },
+            { en: "We go to the park on Sunday.", vi: "Chúng tôi đi công viên vào Chủ nhật." },
+            { en: "I sleep for eight hours.", vi: "Tôi ngủ tám tiếng." },
+            { en: "I wash my face every morning.", vi: "Tôi rửa mặt mỗi sáng." },
+            { en: "I take a shower in the morning.", vi: "Tôi tắm vào buổi sáng." },
+            { en: "I take a bath in the evening.", vi: "Tôi tắm vào buổi tối." },
+            { en: "I comb my hair before school.", vi: "Tôi chải tóc trước khi đến trường." },
+            { en: "I get dressed for school.", vi: "Tôi mặc quần áo để đi học." },
+            { en: "I have breakfast at 7 o'clock.", vi: "Tôi ăn sáng lúc 7 giờ." },
+            { en: "I go to school by bike.", vi: "Tôi đi học bằng xe đạp." },
+            { en: "I study English every day.", vi: "Tôi học tiếng Anh mỗi ngày." },
+            { en: "I read books in the evening.", vi: "Tôi đọc sách vào buổi tối." },
+            { en: "I write a letter to my friend.", vi: "Tôi viết thư cho bạn." },
+            { en: "I draw pictures at school.", vi: "Tôi vẽ tranh ở trường." },
+            { en: "I play games on the computer.", vi: "Tôi chơi trò chơi trên máy tính." },
+            { en: "I play football in the yard.", vi: "Tôi chơi bóng đá ở sân." },
+            { en: "I listen to music every night.", vi: "Tôi nghe nhạc mỗi tối." },
+            { en: "I sing songs at school.", vi: "Tôi hát bài hát ở trường." },
+            { en: "We dance in Music class.", vi: "Chúng tôi nhảy trong tiết Âm nhạc." },
+            { en: "My mother cooks dinner.", vi: "Mẹ tôi nấu bữa tối." },
+            { en: "I eat lunch at school.", vi: "Tôi ăn trưa ở trường." },
+            { en: "I drink milk in the morning.", vi: "Tôi uống sữa vào buổi sáng." },
+            { en: "I do my homework after school.", vi: "Tôi làm bài tập về nhà sau giờ học." },
+            { en: "I sweep the floor every day.", vi: "Tôi quét sàn mỗi ngày." },
+            { en: "I wash the dishes after dinner.", vi: "Tôi rửa chén sau bữa tối." },
+            { en: "I water the plants in the garden.", vi: "Tôi tưới cây trong vườn." },
+            { en: "I feed the cat in the morning.", vi: "Tôi cho mèo ăn vào buổi sáng." },
+            { en: "I go home at 4 o'clock.", vi: "Tôi về nhà lúc 4 giờ." },
+            { en: "I have lunch with my friends.", vi: "Tôi ăn trưa với bạn bè." },
+            { en: "We have dinner at 7 o'clock.", vi: "Chúng tôi ăn tối lúc 7 giờ." },
+            { en: "I take a rest after lunch.", vi: "Tôi nghỉ ngơi sau bữa trưa." },
+            { en: "I go out with my parents.", vi: "Tôi đi chơi với bố mẹ." },
+            { en: "I do morning exercise.", vi: "Tôi tập thể dục buổi sáng." },
+            { en: "I play sports after school.", vi: "Tôi chơi thể thao sau giờ học." },
+            { en: "I help my parents at home.", vi: "Tôi giúp bố mẹ việc nhà." },
+            { en: "I talk with my friends online.", vi: "Tôi nói chuyện với bạn bè trực tuyến." },
+            { en: "I go to bed at nine o'clock.", vi: "Tôi đi ngủ lúc 9 giờ." },
+            { en: "I dream about flying.", vi: "Tôi mơ được bay." },
+            { en: "Let's rest for a while.", vi: "Nghỉ một chút nhé." },
+            { en: "I take photos in the park.", vi: "Tôi chụp ảnh trong công viên." },
+            { en: "I paint a picture of my family.", vi: "Tôi tô bức tranh về gia đình mình." },
+            { en: "She smiles every morning.", vi: "Cô ấy mỉm cười mỗi sáng." },
+            { en: "We laugh a lot in class.", vi: "Chúng tôi cười nhiều trong lớp." }
+        ],
+        "House, Rooms & Furniture": [
+            { en: "This is my house.", vi: "Đây là ngôi nhà của tôi." },
+            { en: "I'm at home now.", vi: "Tôi đang ở nhà." },
+            { en: "My room is big.", vi: "Phòng của tôi rộng." },
+            { en: "This is my bedroom.", vi: "Đây là phòng ngủ của tôi." },
+            { en: "We watch TV in the living room.", vi: "Chúng tôi xem ti vi trong phòng khách." },
+            { en: "My mother cooks in the kitchen.", vi: "Mẹ tôi nấu ăn trong bếp." },
+            { en: "The bathroom is clean.", vi: "Phòng tắm sạch sẽ." },
+            { en: "We have dinner in the dining room.", vi: "Chúng tôi ăn tối trong phòng ăn." },
+            { en: "There are flowers in the garden.", vi: "Có hoa trong vườn." },
+            { en: "We play in the yard.", vi: "Chúng tôi chơi ở sân." },
+            { en: "The roof is red.", vi: "Mái nhà màu đỏ." },
+            { en: "The wall is white.", vi: "Bức tường màu trắng." },
+            { en: "Open the door, please.", vi: "Làm ơn mở cửa ra." },
+            { en: "Close the window, please.", vi: "Làm ơn đóng cửa sổ lại." },
+            { en: "The floor is clean.", vi: "Sàn nhà sạch sẽ." },
+            { en: "There is a fan on the ceiling.", vi: "Có quạt trần trên trần nhà." },
+            { en: "Don't run on the stairs.", vi: "Đừng chạy trên cầu thang." },
+            { en: "The hall is wide.", vi: "Hành lang rộng." },
+            { en: "The car is in the garage.", vi: "Chiếc xe ở trong gara." },
+            { en: "There are plants on the balcony.", vi: "Có cây trên ban công." },
+            { en: "The dog is behind the house.", vi: "Con chó ở phía sau ngôi nhà." },
+            { en: "The garden is in front of the house.", vi: "Khu vườn ở phía trước nhà." },
+            { en: "The kitchen is next to the living room.", vi: "Phòng bếp ở cạnh phòng khách." },
+            { en: "The bathroom is between the bedrooms.", vi: "Phòng tắm ở giữa hai phòng ngủ." },
+            { en: "The cat is on the bed.", vi: "Con mèo ở trên giường." },
+            { en: "The ball is under the chair.", vi: "Quả bóng ở dưới ghế." },
+            { en: "The dog is in the house.", vi: "Con chó ở trong nhà." },
+            { en: "The school is near my house.", vi: "Trường học ở gần nhà tôi." },
+            { en: "There is a table in the room.", vi: "Có một cái bàn trong phòng." },
+            { en: "The chair is next to the table.", vi: "Cái ghế ở bên cạnh cái bàn." },
+            { en: "The bed is in the bedroom.", vi: "Cái giường ở trong phòng ngủ." },
+            { en: "I do my homework at my desk.", vi: "Tôi làm bài tập ở bàn học của mình." },
+            { en: "There is a lamp on the desk.", vi: "Có một cái đèn bàn trên bàn học." },
+            { en: "The fan is on the ceiling.", vi: "Quạt ở trên trần nhà." },
+            { en: "There's a clock on the wall.", vi: "Có một cái đồng hồ trên tường." },
+            { en: "There's a picture on the wall.", vi: "Có một bức tranh trên tường." },
+            { en: "The sofa is in the living room.", vi: "Ghế sofa ở trong phòng khách." },
+            { en: "The armchair is very comfortable.", vi: "Ghế bành rất thoải mái." },
+            { en: "There's a carpet on the floor.", vi: "Có một tấm thảm trên sàn nhà." },
+            { en: "The cupboard is in the kitchen.", vi: "Tủ chén ở trong bếp." },
+            { en: "My clothes are in the wardrobe.", vi: "Quần áo của tôi ở trong tủ quần áo." },
+            { en: "The books are in the bookcase.", vi: "Sách ở trong giá sách." },
+            { en: "The toys are on the shelf.", vi: "Đồ chơi ở trên kệ." },
+            { en: "There is a mirror on the wall.", vi: "Có một chiếc gương trên tường." },
+            { en: "I watch television in the living room.", vi: "Tôi xem ti vi trong phòng khách." },
+            { en: "The milk is in the fridge.", vi: "Sữa ở trong tủ lạnh." },
+            { en: "My mother cooks on the cooker.", vi: "Mẹ tôi nấu ăn bằng bếp." },
+            { en: "There are some dishes in the sink.", vi: "Có vài cái chén trong bồn rửa." },
+            { en: "The tablecloth is clean.", vi: "Khăn trải bàn sạch." },
+            { en: "There's a pillow on the bed.", vi: "Có một chiếc gối trên giường." },
+            { en: "The blanket is warm.", vi: "Cái chăn rất ấm." },
+            { en: "The curtain is blue.", vi: "Rèm cửa màu xanh." },
+            { en: "Turn off the light, please.", vi: "Làm ơn tắt đèn đi." },
+            { en: "The flower vase is on the table.", vi: "Bình hoa ở trên bàn." },
+            { en: "The basket is under the table.", vi: "Cái giỏ ở dưới bàn." },
+            { en: "The toys are in the toy box.", vi: "Đồ chơi ở trong hộp đồ chơi." },
+            { en: "There is a computer on the desk.", vi: "Có một máy tính trên bàn học." },
+            { en: "Welcome home!", vi: "Chào mừng về nhà!" },
+            { en: "There are four rooms in my house.", vi: "Nhà tôi có bốn phòng." },
+            { en: "I sleep in my bedroom.", vi: "Tôi ngủ trong phòng ngủ." },
+            { en: "I brush my teeth in the bathroom.", vi: "Tôi đánh răng trong phòng tắm." },
+            { en: "We eat in the dining room.", vi: "Chúng tôi ăn trong phòng ăn." },
+            { en: "The children play in the yard.", vi: "Bọn trẻ chơi ở sân." },
+            { en: "There are pictures on the wall.", vi: "Có tranh trên tường." },
+            { en: "Go up the stairs.", vi: "Đi lên cầu thang." },
+            { en: "There's a lamp on the desk.", vi: "Có một cây đèn trên bàn." },
+            { en: "Turn off the light.", vi: "Tắt đèn đi." },
+            { en: "There's a bed in my room.", vi: "Có một chiếc giường trong phòng tôi." },
+            { en: "The pillow is soft.", vi: "Cái gối mềm." },
+            { en: "I sleep under a blanket.", vi: "Tôi ngủ dưới chăn." },
+            { en: "There's a table in the kitchen.", vi: "Có một cái bàn trong bếp." },
+            { en: "I sit on a chair.", vi: "Tôi ngồi trên ghế." },
+            { en: "We sit on the sofa.", vi: "Chúng tôi ngồi trên ghế sô pha." },
+            { en: "My father sits in the armchair.", vi: "Bố tôi ngồi trên ghế bành." },
+            { en: "The dishes are in the cupboard.", vi: "Chén đĩa ở trong tủ chén." },
+            { en: "The books are on the shelf.", vi: "Sách ở trên kệ." },
+            { en: "We watch TV every evening.", vi: "Chúng tôi xem TV mỗi tối." },
+            { en: "Look in the mirror.", vi: "Nhìn vào gương đi." },
+            { en: "Turn on the fan, please.", vi: "Làm ơn bật quạt." },
+            { en: "The air conditioner is on the wall.", vi: "Máy lạnh ở trên tường." },
+            { en: "There's milk in the refrigerator.", vi: "Có sữa trong tủ lạnh." },
+            { en: "The stove is in the kitchen.", vi: "Cái bếp ở trong bếp." },
+            { en: "The sink is clean.", vi: "Bồn rửa sạch." },
+            { en: "The washing machine is in the bathroom.", vi: "Máy giặt ở trong phòng tắm." },
+            { en: "I have a computer on my desk.", vi: "Tôi có máy tính trên bàn." },
+            { en: "The telephone is ringing.", vi: "Điện thoại đang reo." },
+            { en: "There's a plant in the corner.", vi: "Có một chậu cây ở góc phòng." },
+            { en: "I wash my hands in the bathroom sink.", vi: "Tôi rửa tay trong bồn rửa phòng tắm." },
+            { en: "The toilet is clean.", vi: "Nhà vệ sinh sạch." },
+            { en: "There's a car in the garage.", vi: "Có một chiếc xe trong ga-ra." },
+            { en: "My father parks his car in the garage.", vi: "Bố tôi đậu xe trong ga-ra." },
+            { en: "The ceiling is high.", vi: "Trần nhà cao." },
+            { en: "Go up the stairs!", vi: "Đi lên cầu thang!" },
+            { en: "I can see the street from the balcony.", vi: "Tôi có thể nhìn thấy đường từ ban công." },
+            { en: "The gate is big and brown.", vi: "Cổng nhà to và màu nâu." },
+            { en: "There's a fence around the house.", vi: "Có hàng rào quanh nhà." },
+            { en: "The air conditioner keeps the room cool.", vi: "Máy lạnh giữ cho phòng mát." },
+            { en: "My bed is soft.", vi: "Giường của tôi mềm." },
+            { en: "I put my head on the pillow.", vi: "Tôi đặt đầu lên gối." },
+            { en: "There are books on the shelf.", vi: "Có sách trên kệ." },
+            { en: "The table is brown.", vi: "Cái bàn màu nâu." },
+            { en: "Sit on the chair, please.", vi: "Làm ơn ngồi lên ghế." },
+            { en: "We sit on the sofa to watch TV.", vi: "Chúng tôi ngồi trên ghế sofa để xem TV." },
+            { en: "There's milk in the fridge.", vi: "Có sữa trong tủ lạnh." },
+            { en: "There are cups in the cupboard.", vi: "Có những cái cốc trong tủ chén." },
+            { en: "My mother uses the cooker every day.", vi: "Mẹ tôi dùng bếp nấu mỗi ngày." },
+            { en: "I wash my hands in the sink.", vi: "Tôi rửa tay trong bồn rửa." },
+            { en: "There's a mirror on the wall.", vi: "Có cái gương trên tường." },
+            { en: "I take a shower every morning.", vi: "Tôi tắm vòi sen mỗi sáng." },
+            { en: "The baby is in the bath.", vi: "Em bé đang ở trong bồn tắm." },
+            { en: "The carpet is soft.", vi: "Tấm thảm rất mềm." },
+            { en: "There are flowers in the vase.", vi: "Có hoa trong lọ." },
+            { en: "Here's the key to my house.", vi: "Đây là chìa khóa nhà tôi." },
+            { en: "I clean my room every day.", vi: "Tôi dọn phòng mỗi ngày." },
+            { en: "My room is clean and tidy.", vi: "Phòng tôi sạch sẽ và gọn gàng." },
+            { en: "My house is small but nice.", vi: "Nhà tôi nhỏ nhưng đẹp." },
+            { en: "Their house is big.", vi: "Nhà của họ rất to." }
+        ],
+        "Household Objects": [
+            { en: "Open the door, please.", vi: "Làm ơn mở cửa ra." },
+            { en: "The window is open.", vi: "Cửa sổ đang mở." },
+            { en: "The key is on the table.", vi: "Chìa khóa ở trên bàn." },
+            { en: "There's a clock on the wall.", vi: "Có đồng hồ trên tường." },
+            { en: "The phone is ringing.", vi: "Điện thoại đang reo." },
+            { en: "I talk to my friend on the telephone.", vi: "Tôi nói chuyện với bạn qua điện thoại." },
+            { en: "Turn off the light, please.", vi: "Làm ơn tắt đèn đi." },
+            { en: "The fan is on the table.", vi: "Quạt ở trên bàn." },
+            { en: "Look in the mirror.", vi: "Nhìn vào gương đi." },
+            { en: "My school bag is blue.", vi: "Cặp sách của tôi màu xanh." },
+            { en: "The toys are in the box.", vi: "Đồ chơi ở trong hộp." },
+            { en: "The basket is full of fruit.", vi: "Cái giỏ đầy trái cây." },
+            { en: "The broom is behind the door.", vi: "Cây chổi ở sau cửa." },
+            { en: "I clean the floor with a mop.", vi: "Tôi lau sàn bằng cây lau nhà." },
+            { en: "There's a towel in the bathroom.", vi: "Có khăn trong phòng tắm." },
+            { en: "The clock is round.", vi: "Đồng hồ hình tròn." },
+            { en: "The cup is on the table.", vi: "Cái tách ở trên bàn." },
+            { en: "The plate is white.", vi: "Cái đĩa màu trắng." },
+            { en: "I eat with a spoon.", vi: "Tôi ăn bằng muỗng." },
+            { en: "The fork is on the table.", vi: "Cái nĩa ở trên bàn." },
+            { en: "Be careful with the knife.", vi: "Cẩn thận với con dao." },
+            { en: "There's a bottle of milk.", vi: "Có một chai sữa." },
+            { en: "This glass is clean.", vi: "Cái ly này sạch." },
+            { en: "Turn on the television.", vi: "Mở ti vi lên đi." },
+            { en: "I listen to the radio.", vi: "Tôi nghe đài." },
+            { en: "Where's the remote control?", vi: "Điều khiển tivi ở đâu vậy?" },
+            { en: "The broomstick is in the corner.", vi: "Cây chổi ở góc phòng." },
+            { en: "I have a hair brush.", vi: "Tôi có một cái lược chải tóc." },
+            { en: "I use toothpaste to brush my teeth.", vi: "Tôi dùng kem đánh răng để đánh răng." },
+            { en: "I wash my hands with soap.", vi: "Tôi rửa tay bằng xà phòng." },
+            { en: "I wash my hair with shampoo.", vi: "Tôi gội đầu bằng dầu gội." },
+            { en: "I comb my hair every morning.", vi: "Tôi chải tóc mỗi sáng." },
+            { en: "Take a towel, please.", vi: "Làm ơn lấy cái khăn." },
+            { en: "Give me a tissue, please.", vi: "Làm ơn đưa tôi một tờ giấy lau." },
+            { en: "Put the paper in the bin.", vi: "Bỏ giấy vào thùng rác đi." },
+            { en: "Take an umbrella. It's raining.", vi: "Cầm ô đi, trời đang mưa." }
+        ],
+        "Weather & Seasons": [
+            { en: "What's the weather like today?", vi: "Thời tiết hôm nay thế nào?" },
+            { en: "It's sunny today.", vi: "Hôm nay trời nắng." },
+            { en: "It's rainy and wet.", vi: "Trời mưa và ướt." },
+            { en: "It's cloudy this morning.", vi: "Sáng nay trời nhiều mây." },
+            { en: "It's windy outside.", vi: "Bên ngoài có gió." },
+            { en: "It's stormy today.", vi: "Hôm nay có bão." },
+            { en: "It's foggy in the morning.", vi: "Buổi sáng có sương mù." },
+            { en: "It's snowy and cold.", vi: "Trời có tuyết và lạnh." },
+            { en: "It's cold in winter.", vi: "Mùa đông trời lạnh." },
+            { en: "It's hot in summer.", vi: "Mùa hè trời nóng." },
+            { en: "It's warm today.", vi: "Hôm nay trời ấm." },
+            { en: "It's cool in autumn.", vi: "Mùa thu trời mát." },
+            { en: "It's wet after the rain.", vi: "Sau cơn mưa, trời ướt." },
+            { en: "It's dry and sunny.", vi: "Trời khô ráo và có nắng." },
+            { en: "There is snow on the roof.", vi: "Có tuyết trên mái nhà." },
+            { en: "It's going to rain.", vi: "Trời sắp mưa." },
+            { en: "The wind is strong today.", vi: "Hôm nay gió mạnh." },
+            { en: "The sun is shining.", vi: "Mặt trời đang chiếu sáng." },
+            { en: "There are many clouds in the sky.", vi: "Có nhiều mây trên bầu trời." },
+            { en: "The sky is blue.", vi: "Bầu trời màu xanh." },
+            { en: "There is a rainbow after the rain.", vi: "Có cầu vồng sau cơn mưa." },
+            { en: "There are four seasons in a year.", vi: "Có bốn mùa trong một năm." },
+            { en: "I like spring.", vi: "Tôi thích mùa xuân." },
+            { en: "The leaves fall in autumn.", vi: "Lá rụng vào mùa thu." },
+            { en: "Fall is cool and windy.", vi: "Mùa thu mát và có gió." },
+            { en: "My favorite season is spring.", vi: "Mùa yêu thích của tôi là mùa xuân." },
+            { en: "It may rain tomorrow.", vi: "Ngày mai có thể mưa." },
+            { en: "It was sunny yesterday.", vi: "Hôm qua trời nắng." },
+            { en: "What do you wear in winter?", vi: "Em mặc gì vào mùa đông?" },
+            { en: "I wear a coat when it's cold.", vi: "Tôi mặc áo khoác khi trời lạnh." },
+            { en: "I wear boots in winter.", vi: "Tôi đi ủng vào mùa đông." },
+            { en: "Take an umbrella. It's raining.", vi: "Cầm ô đi, trời đang mưa." },
+            { en: "I wear a raincoat on rainy days.", vi: "Tôi mặc áo mưa vào ngày mưa." },
+            { en: "I wear a hat on sunny days.", vi: "Tôi đội mũ vào ngày nắng." },
+            { en: "I wear gloves when it's cold.", vi: "Tôi đeo găng tay khi trời lạnh." },
+            { en: "I wear a scarf in winter.", vi: "Tôi quàng khăn vào mùa đông." },
+            { en: "It's rainy in July.", vi: "Trời mưa vào tháng Bảy." },
+            { en: "It's windy in the afternoon.", vi: "Buổi chiều trời nhiều gió." },
+            { en: "Spring is warm and beautiful.", vi: "Mùa xuân ấm áp và đẹp." },
+            { en: "Summer is hot and sunny.", vi: "Mùa hè nóng và có nắng." },
+            { en: "Autumn is cool and windy.", vi: "Mùa thu mát mẻ và có gió." },
+            { en: "Winter is cold and snowy.", vi: "Mùa đông lạnh và có tuyết." },
+            { en: "It's cold today.", vi: "Hôm nay trời lạnh." },
+            { en: "It's warm in spring.", vi: "Trời ấm vào mùa xuân." },
+            { en: "It's dry in the desert.", vi: "Trời khô ở sa mạc." },
+            { en: "The temperature is high today.", vi: "Nhiệt độ hôm nay cao." },
+            { en: "It's 30 degrees today.", vi: "Hôm nay 30 độ." },
+            { en: "I watch the weather forecast on TV.", vi: "Tôi xem dự báo thời tiết trên TV." },
+            { en: "Put on your raincoat.", vi: "Mặc áo mưa vào." },
+            { en: "I wear boots in the rain.", vi: "Tôi mang ủng khi trời mưa." },
+            { en: "Wear a hat. It's sunny.", vi: "Đội mũ đi, trời nắng." },
+            { en: "I wear sunglasses in summer.", vi: "Tôi đeo kính râm vào mùa hè." },
+            { en: "Look! It's snowing.", vi: "Nhìn kìa! Tuyết đang rơi." },
+            { en: "It rains a lot in May.", vi: "Tháng Năm trời mưa nhiều." },
+            { en: "The wind is strong.", vi: "Gió mạnh quá." },
+            { en: "There are white clouds in the sky.", vi: "Có những đám mây trắng trên trời." },
+            { en: "There is a big storm.", vi: "Có một cơn bão lớn." },
+            { en: "I can see a rainbow!", vi: "Tôi thấy cầu vồng!" },
+            { en: "I hear thunder.", vi: "Tôi nghe thấy sấm." },
+            { en: "I see lightning in the sky.", vi: "Tôi thấy tia chớp trên trời." },
+            { en: "We make a snowman in winter.", vi: "Chúng tôi làm người tuyết vào mùa đông." },
+            { en: "The lake is full of ice.", vi: "Hồ đầy băng." },
+            { en: "There is fog on the road.", vi: "Có sương mù trên đường." },
+            { en: "The wind blows the trees.", vi: "Gió thổi cây." },
+            { en: "The sun shines in the morning.", vi: "Mặt trời chiếu sáng vào buổi sáng." },
+            { en: "It snows in winter.", vi: "Trời có tuyết vào mùa đông." },
+            { en: "It rains in July.", vi: "Trời mưa vào tháng Bảy." },
+            { en: "It's a hot day today.", vi: "Hôm nay là một ngày nóng." },
+            { en: "It's a cold day in January.", vi: "Tháng Một là ngày lạnh." },
+            { en: "It's a windy day today.", vi: "Hôm nay là một ngày nhiều gió." },
+            { en: "It's a sunny day!", vi: "Hôm nay là ngày nắng!" },
+            { en: "I like cool weather.", vi: "Tôi thích thời tiết mát mẻ." },
+            { en: "The weather changes every season.", vi: "Thời tiết thay đổi theo mùa." },
+            { en: "It's a beautiful sunny day.", vi: "Hôm nay là một ngày nắng đẹp." },
+            { en: "It's a rainy day today.", vi: "Hôm nay là một ngày mưa." },
+            { en: "It's a hot day in June.", vi: "Là một ngày nóng vào tháng Sáu." },
+            { en: "It's a cold day in December.", vi: "Là một ngày lạnh vào tháng Mười Hai." },
+            { en: "It's a windy day in autumn.", vi: "Là một ngày gió vào mùa thu." },
+            { en: "Look at the cloudy sky!", vi: "Nhìn bầu trời đầy mây kìa!" },
+            { en: "The sunny sky is clear.", vi: "Bầu trời nắng trong xanh." },
+            { en: "I don't like rainy weather.", vi: "Tôi không thích thời tiết mưa." }
+        ],
+        "Clothes & Colors": [
+            { en: "I wear clean clothes every day.", vi: "Tôi mặc quần áo sạch mỗi ngày." },
+            { en: "He's wearing a blue shirt.", vi: "Cậu ấy đang mặc áo sơ mi xanh." },
+            { en: "I have a white T-shirt.", vi: "Tôi có một áo thun trắng." },
+            { en: "She's wearing a red dress.", vi: "Cô ấy đang mặc váy đỏ." },
+            { en: "Her skirt is pink.", vi: "Váy của cô ấy màu hồng." },
+            { en: "He's wearing black trousers.", vi: "Cậu ấy đang mặc quần dài đen." },
+            { en: "I wear shorts in summer.", vi: "Tôi mặc quần ngắn vào mùa hè." },
+            { en: "My jeans are new.", vi: "Quần jean của tôi mới." },
+            { en: "I wear a coat in winter.", vi: "Tôi mặc áo khoác vào mùa đông." },
+            { en: "He's wearing a brown jacket.", vi: "Cậu ấy đang mặc áo khoác nâu." },
+            { en: "I wear a sweater when it's cold.", vi: "Tôi mặc áo len khi trời lạnh." },
+            { en: "I wear my school uniform.", vi: "Tôi mặc đồng phục trường." },
+            { en: "She's wearing a yellow hat.", vi: "Cô ấy đang đội mũ vàng." },
+            { en: "He's wearing a red cap.", vi: "Cậu ấy đội mũ lưỡi trai đỏ." },
+            { en: "I wear shoes to school.", vi: "Tôi mang giày đến trường." },
+            { en: "I wear sandals in summer.", vi: "Tôi mang dép vào mùa hè." },
+            { en: "He wears boots when it's rainy.", vi: "Cậu ấy mang ủng khi trời mưa." },
+            { en: "I wear socks with my shoes.", vi: "Tôi mang tất cùng giày." },
+            { en: "I have a red scarf.", vi: "Tôi có một chiếc khăn đỏ." },
+            { en: "I wear gloves in winter.", vi: "Tôi đeo găng tay vào mùa đông." },
+            { en: "My belt is black.", vi: "Dây nịt của tôi màu đen." },
+            { en: "I wear sunglasses on sunny days.", vi: "Tôi đeo kính râm vào ngày nắng." },
+            { en: "I wear a raincoat on rainy days.", vi: "Tôi mặc áo mưa vào ngày mưa." },
+            { en: "I wear pajamas to bed.", vi: "Tôi mặc đồ ngủ khi đi ngủ." },
+            { en: "I wear a swimsuit to swim.", vi: "Tôi mặc đồ bơi để bơi." },
+            { en: "Put on your coat, it's cold.", vi: "Mặc áo khoác vào đi, trời lạnh đó." },
+            { en: "Take off your shoes, please.", vi: "Làm ơn cởi giày ra." },
+            { en: "I wear a blue dress.", vi: "Tôi mặc váy xanh." },
+            { en: "What color is your shirt?", vi: "Áo sơ mi của bạn màu gì?" },
+            { en: "My hat is red.", vi: "Mũ của tôi màu đỏ." },
+            { en: "Her shoes are blue.", vi: "Giày của cô ấy màu xanh." },
+            { en: "I like your yellow T-shirt.", vi: "Tôi thích áo thun màu vàng của bạn." },
+            { en: "He's wearing a green jacket.", vi: "Cậu ấy mặc áo khoác xanh lá." },
+            { en: "I have a purple scarf.", vi: "Tôi có khăn quàng màu tím." },
+            { en: "His hat is orange.", vi: "Mũ của cậu ấy màu cam." },
+            { en: "I have a white uniform.", vi: "Tôi có đồng phục màu trắng." },
+            { en: "My shoes are black.", vi: "Giày của tôi màu đen." },
+            { en: "His trousers are brown.", vi: "Quần của cậu ấy màu nâu." },
+            { en: "The coat is grey.", vi: "Áo khoác màu xám." },
+            { en: "I like new clothes.", vi: "Tôi thích quần áo mới." },
+            { en: "Put on your jacket.", vi: "Mặc áo khoác của bạn vào." },
+            { en: "I have a blue T-shirt.", vi: "Tôi có một áo thun màu xanh." },
+            { en: "My father wears a white shirt.", vi: "Bố tôi mặc áo sơ mi trắng." },
+            { en: "She wears a pink blouse.", vi: "Cô ấy mặc áo cánh màu hồng." },
+            { en: "The girl wears a red dress.", vi: "Cô bé mặc váy đỏ." },
+            { en: "Her skirt is yellow.", vi: "Váy của cô ấy màu vàng." },
+            { en: "I like blue jeans.", vi: "Tôi thích quần bò màu xanh." },
+            { en: "My trousers are black.", vi: "Quần của tôi màu đen." },
+            { en: "It's cold. Wear your coat.", vi: "Trời lạnh. Mặc áo khoác nhé." },
+            { en: "I wear a sweater in winter.", vi: "Tôi mặc áo len vào mùa đông." },
+            { en: "I wear a hat in the sun.", vi: "Tôi đội mũ khi trời nắng." },
+            { en: "He wears a red cap.", vi: "Cậu ấy đội mũ lưỡi trai đỏ." },
+            { en: "She wears a scarf in winter.", vi: "Cô ấy quàng khăn vào mùa đông." },
+            { en: "My socks are white.", vi: "Tất của tôi màu trắng." },
+            { en: "I put on my shoes.", vi: "Tôi mang giày." },
+            { en: "I wear boots in the rain.", vi: "Tôi mang ủng khi trời mưa." },
+            { en: "Our school uniform is blue.", vi: "Đồng phục trường chúng tôi màu xanh." },
+            { en: "My father wears a belt.", vi: "Bố tôi đeo thắt lưng." },
+            { en: "He wears a tie to school.", vi: "Cậu ấy đeo cà vạt đến trường." },
+            { en: "I wear sunglasses in summer.", vi: "Tôi đeo kính râm vào mùa hè." },
+            { en: "I wear pajamas at night.", vi: "Tôi mặc đồ ngủ vào ban đêm." },
+            { en: "She wears a swimsuit at the pool.", vi: "Cô ấy mặc đồ bơi ở hồ bơi." },
+            { en: "What color is your hat?", vi: "Mũ của bạn màu gì?" },
+            { en: "The apple is red.", vi: "Quả táo màu đỏ." },
+            { en: "The sky is blue.", vi: "Bầu trời màu xanh." },
+            { en: "The sun is yellow.", vi: "Mặt trời màu vàng." },
+            { en: "The grass is green.", vi: "Cỏ màu xanh lá cây." },
+            { en: "The orange is orange.", vi: "Quả cam màu cam." },
+            { en: "My dress is purple.", vi: "Váy của tôi màu tím." },
+            { en: "She has a pink hat.", vi: "Cô ấy có chiếc mũ hồng." },
+            { en: "His shoes are brown.", vi: "Giày của anh ấy màu nâu." },
+            { en: "I wear a white shirt.", vi: "Tôi mặc áo sơ mi trắng." },
+            { en: "The cat is gray.", vi: "Con mèo màu xám." },
+            { en: "The balloons are colorful.", vi: "Những quả bóng đầy màu sắc." },
+            { en: "He wears dark blue jeans.", vi: "Cậu ấy mặc quần jean xanh đậm." },
+            { en: "She likes light pink.", vi: "Cô ấy thích màu hồng nhạt." },
+            { en: "My shoes are new.", vi: "Giày của tôi mới." },
+            { en: "These clothes are old.", vi: "Quần áo này cũ rồi." },
+            { en: "My shirt is clean.", vi: "Áo của tôi sạch." },
+            { en: "Your shoes are dirty.", vi: "Giày của bạn bẩn rồi." },
+            { en: "Her dress is beautiful.", vi: "Váy của cô ấy đẹp." },
+            { en: "My favorite color is blue.", vi: "Màu yêu thích của tôi là màu xanh." }
+        ],
+        "Animals, Actions & Habits": [
+            { en: "I like animals.", vi: "Tôi thích các loài vật." },
+            { en: "The cat is under the table.", vi: "Con mèo ở dưới bàn." },
+            { en: "The dog is in the garden.", vi: "Con chó ở trong vườn." },
+            { en: "The bird is on the tree.", vi: "Con chim ở trên cây." },
+            { en: "The fish is in the pond.", vi: "Con cá ở trong ao." },
+            { en: "The rabbit eats carrots.", vi: "Con thỏ ăn cà rốt." },
+            { en: "The mouse is small.", vi: "Con chuột nhỏ." },
+            { en: "The cow gives us milk.", vi: "Con bò cho chúng ta sữa." },
+            { en: "The goat is on the hill.", vi: "Con dê ở trên đồi." },
+            { en: "The sheep is white.", vi: "Con cừu màu trắng." },
+            { en: "The pig is in the pen.", vi: "Con heo ở trong chuồng." },
+            { en: "The duck can swim.", vi: "Con vịt biết bơi." },
+            { en: "The hen lays eggs.", vi: "Con gà mái đẻ trứng." },
+            { en: "We have chicken for dinner.", vi: "Chúng tôi ăn thịt gà cho bữa tối." },
+            { en: "The elephant is big.", vi: "Con voi to lớn." },
+            { en: "The tiger is strong.", vi: "Con hổ mạnh mẽ." },
+            { en: "The lion lives in the zoo.", vi: "Sư tử sống trong sở thú." },
+            { en: "The monkey can climb trees.", vi: "Con khỉ có thể leo cây." },
+            { en: "The bear is brown.", vi: "Con gấu màu nâu." },
+            { en: "The panda eats bamboo.", vi: "Gấu trúc ăn tre." },
+            { en: "The giraffe has a long neck.", vi: "Con hươu cao cổ có cổ dài." },
+            { en: "The zebra is black and white.", vi: "Con ngựa vằn có sọc đen trắng." },
+            { en: "The horse can run fast.", vi: "Con ngựa chạy nhanh." },
+            { en: "The crocodile lives in the river.", vi: "Cá sấu sống trong sông." },
+            { en: "The snake is long.", vi: "Con rắn dài." },
+            { en: "The frog can jump.", vi: "Con ếch có thể nhảy." },
+            { en: "The turtle walks slowly.", vi: "Con rùa đi chậm." },
+            { en: "The dolphin can swim fast.", vi: "Cá heo bơi nhanh." },
+            { en: "The whale is the biggest animal.", vi: "Cá voi là động vật lớn nhất." },
+            { en: "The penguin can't fly.", vi: "Chim cánh cụt không biết bay." },
+            { en: "The fox is clever.", vi: "Con cáo rất thông minh." },
+            { en: "The wolf lives in the forest.", vi: "Sói sống trong rừng." },
+            { en: "The squirrel climbs trees.", vi: "Con sóc leo cây." },
+            { en: "The parrot can speak.", vi: "Con vẹt có thể nói." },
+            { en: "The rooster crows in the morning.", vi: "Con gà trống gáy vào buổi sáng." },
+            { en: "The camel lives in the desert.", vi: "Lạc đà sống ở sa mạc." },
+            { en: "An ant is an insect.", vi: "Kiến là một loại côn trùng." },
+            { en: "The bee makes honey.", vi: "Con ong làm mật ong." },
+            { en: "The butterfly is beautiful.", vi: "Con bướm rất đẹp." },
+            { en: "The ant is small.", vi: "Con kiến nhỏ." },
+            { en: "The spider has eight legs.", vi: "Con nhện có tám chân." },
+            { en: "I have a pet dog.", vi: "Tôi có một con chó cưng." },
+            { en: "The cow is a farm animal.", vi: "Con bò là vật nuôi trong trang trại." },
+            { en: "The tiger is a wild animal.", vi: "Con hổ là động vật hoang dã." },
+            { en: "We see animals in the zoo.", vi: "Chúng tôi xem thú trong sở thú." },
+            { en: "Do you have a pet?", vi: "Bạn có thú cưng không?" },
+            { en: "My dog can run fast.", vi: "Con chó của tôi có thể chạy nhanh." },
+            { en: "The cat is sleeping on the sofa.", vi: "Con mèo đang ngủ trên ghế sofa." },
+            { en: "The bird can fly.", vi: "Con chim có thể bay." },
+            { en: "The fish can swim.", vi: "Con cá có thể bơi." },
+            { en: "The duck swims in the pond.", vi: "Con vịt bơi trong ao." },
+            { en: "The chicken is eating.", vi: "Con gà đang ăn." },
+            { en: "The pig is fat and pink.", vi: "Con heo béo và có màu hồng." },
+            { en: "The cow eats grass.", vi: "Con bò ăn cỏ." },
+            { en: "The sheep has white wool.", vi: "Con cừu có lông trắng." },
+            { en: "The goat eats leaves.", vi: "Con dê ăn lá cây." },
+            { en: "The tiger runs fast.", vi: "Con hổ chạy nhanh." },
+            { en: "The lion is the king of animals.", vi: "Sư tử là chúa tể muôn loài." },
+            { en: "The bear likes honey.", vi: "Con gấu thích mật ong." },
+            { en: "The snake can crawl.", vi: "Con rắn có thể bò." },
+            { en: "The rabbit can jump.", vi: "Con thỏ có thể nhảy." },
+            { en: "The frog can jump and swim.", vi: "Con ếch có thể nhảy và bơi." },
+            { en: "The fox is very clever.", vi: "Con cáo rất khôn ngoan." },
+            { en: "The bird builds a nest.", vi: "Chim làm tổ." },
+            { en: "The bee is an insect.", vi: "Con ong là côn trùng." },
+            { en: "The ant is small and hard-working.", vi: "Con kiến nhỏ và chăm chỉ." },
+            { en: "The spider makes a web.", vi: "Con nhện giăng tơ." },
+            { en: "The peacock has colorful feathers.", vi: "Con công có bộ lông đầy màu sắc." },
+            { en: "Birds can fly in the sky.", vi: "Chim có thể bay trên bầu trời." },
+            { en: "Fish swim in the water.", vi: "Cá bơi trong nước." },
+            { en: "Rabbits can jump high.", vi: "Thỏ có thể nhảy cao." },
+            { en: "Horses run very fast.", vi: "Ngựa chạy rất nhanh." },
+            { en: "Snakes crawl on the ground.", vi: "Rắn bò trên mặt đất." },
+            { en: "Dogs walk with their owners.", vi: "Chó đi cùng chủ." },
+            { en: "Cows eat grass.", vi: "Bò ăn cỏ." },
+            { en: "Cats like to sleep.", vi: "Mèo thích ngủ." },
+            { en: "Animals drink water.", vi: "Động vật uống nước." },
+            { en: "Lions live in the jungle.", vi: "Sư tử sống trong rừng." },
+            { en: "The bird grows fast.", vi: "Con chim lớn nhanh." },
+            { en: "The cat makes a sound \"meow.\"", vi: "Con mèo kêu “meo meo.\"" },
+            { en: "A dog lives in a kennel.", vi: "Con chó sống trong chuồng." },
+            { en: "I feed my pets every day.", vi: "Tôi cho thú cưng ăn mỗi ngày." },
+            { en: "We must protect animals.", vi: "Chúng ta phải bảo vệ động vật." },
+            { en: "Lions are wild animals.", vi: "Sư tử là động vật hoang dã." },
+            { en: "Cats are tame animals.", vi: "Mèo là động vật đã được thuần hóa." }
+        ],
+        "Nature & Places": [
+            { en: "I love nature.", vi: "Tôi yêu thiên nhiên." },
+            { en: "There is a tree in the garden.", vi: "Có một cái cây trong vườn." },
+            { en: "The flowers are beautiful.", vi: "Những bông hoa thật đẹp." },
+            { en: "The grass is green.", vi: "Cỏ màu xanh." },
+            { en: "A leaf is on the ground.", vi: "Một chiếc lá rơi trên đất." },
+            { en: "There are many trees in the forest.", vi: "Có nhiều cây trong rừng." },
+            { en: "Tigers live in the jungle.", vi: "Hổ sống trong rừng rậm." },
+            { en: "The mountain is high.", vi: "Ngọn núi cao." },
+            { en: "There's a house on the hill.", vi: "Có một ngôi nhà trên đồi." },
+            { en: "The river is long.", vi: "Dòng sông dài." },
+            { en: "We can swim in the lake.", vi: "Chúng tôi có thể bơi trong hồ." },
+            { en: "The sea is blue.", vi: "Biển màu xanh." },
+            { en: "The ocean is very large.", vi: "Đại dương rất rộng lớn." },
+            { en: "We play on the beach.", vi: "Chúng tôi chơi trên bãi biển." },
+            { en: "I want to visit an island.", vi: "Tôi muốn đến thăm một hòn đảo." },
+            { en: "The farmer works in the field.", vi: "Người nông dân làm việc trên cánh đồng." },
+            { en: "There are many animals on the farm.", vi: "Có nhiều động vật ở trang trại." },
+            { en: "We go to the park on Sunday.", vi: "Chúng tôi đi công viên vào Chủ nhật." },
+            { en: "We see animals in the zoo.", vi: "Chúng tôi xem thú trong sở thú." },
+            { en: "There are cars on the road.", vi: "Có xe hơi trên đường." },
+            { en: "I live on Green Street.", vi: "Tôi sống trên đường Green." },
+            { en: "There is a bridge over the river.", vi: "Có cây cầu bắc qua sông." },
+            { en: "There is a shop near my house.", vi: "Có một cửa hàng gần nhà tôi." },
+            { en: "My mom buys food at the market.", vi: "Mẹ tôi mua đồ ăn ở chợ." },
+            { en: "Our school is big.", vi: "Trường của chúng tôi to." },
+            { en: "The hospital is near the park.", vi: "Bệnh viện ở gần công viên." },
+            { en: "The post office is next to the bank.", vi: "Bưu điện ở cạnh ngân hàng." },
+            { en: "My father works in a bank.", vi: "Bố tôi làm việc ở ngân hàng." },
+            { en: "We watch films at the cinema.", vi: "Chúng tôi xem phim ở rạp." },
+            { en: "We visit the museum on Sunday.", vi: "Chúng tôi thăm bảo tàng vào Chủ nhật." },
+            { en: "We play football in the stadium.", vi: "Chúng tôi chơi bóng đá ở sân vận động." },
+            { en: "We have dinner at a restaurant.", vi: "Chúng tôi ăn tối ở nhà hàng." },
+            { en: "They stay in a hotel.", vi: "Họ ở khách sạn." },
+            { en: "The train is at the station.", vi: "Tàu đang ở nhà ga." },
+            { en: "We wait at the bus stop.", vi: "Chúng tôi đợi ở trạm xe buýt." },
+            { en: "The plane is at the airport.", vi: "Máy bay ở sân bay." },
+            { en: "Hanoi is a big city.", vi: "Hà Nội là thành phố lớn." },
+            { en: "My town is small.", vi: "Thị trấn của tôi nhỏ." },
+            { en: "I live in a quiet village.", vi: "Tôi sống ở một ngôi làng yên bình." },
+            { en: "Vietnam is a beautiful country.", vi: "Việt Nam là một đất nước xinh đẹp." },
+            { en: "This is my favorite place.", vi: "Đây là nơi tôi thích nhất." },
+            { en: "We walk along the riverbank.", vi: "Chúng tôi đi dọc bờ sông." },
+            { en: "The desert is hot and dry.", vi: "Sa mạc nóng và khô." },
+            { en: "There is a cave in the mountain.", vi: "Có hang động trong núi." }
+        ],
+        "Directions & Transportation": [
+            { en: "I like all kinds of transport.", vi: "Tôi thích mọi loại phương tiện giao thông." },
+            { en: "My father drives a car.", vi: "Bố tôi lái xe hơi." },
+            { en: "We go to school by bus.", vi: "Chúng tôi đi học bằng xe buýt." },
+            { en: "I ride my bicycle to school.", vi: "Tôi đi học bằng xe đạp." },
+            { en: "I go by bike.", vi: "Tôi đi bằng xe đạp." },
+            { en: "My uncle goes to work by motorbike.", vi: "Chú tôi đi làm bằng xe máy." },
+            { en: "She rides a scooter.", vi: "Cô ấy lái xe tay ga." },
+            { en: "We go to Hanoi by train.", vi: "Chúng tôi đi Hà Nội bằng tàu hỏa." },
+            { en: "We fly to Ho Chi Minh City by plane.", vi: "Chúng tôi bay đến TP.HCM bằng máy bay." },
+            { en: "The airplane is in the sky.", vi: "Máy bay đang ở trên trời." },
+            { en: "The fisherman goes by boat.", vi: "Người đánh cá đi bằng thuyền." },
+            { en: "The ship is big.", vi: "Con tàu rất to." },
+            { en: "We take a taxi to the airport.", vi: "Chúng tôi đi taxi đến sân bay." },
+            { en: "The truck carries boxes.", vi: "Xe tải chở các thùng hàng." },
+            { en: "The ambulance is fast.", vi: "Xe cứu thương chạy nhanh." },
+            { en: "The fire truck is red.", vi: "Xe cứu hỏa màu đỏ." },
+            { en: "The police car is in front of the bank.", vi: "Xe cảnh sát ở trước ngân hàng." },
+            { en: "We wait at the bus stop.", vi: "Chúng tôi đợi ở trạm xe buýt." },
+            { en: "The train is at the station.", vi: "Tàu ở trong nhà ga." },
+            { en: "The airplane is at the airport.", vi: "Máy bay ở sân bay." },
+            { en: "There are cars on the road.", vi: "Có xe hơi trên đường." },
+            { en: "My school is on this street.", vi: "Trường của tôi ở trên con đường này." },
+            { en: "Stop at the traffic light.", vi: "Dừng lại ở đèn giao thông." },
+            { en: "There is a bridge over the river.", vi: "Có cây cầu bắc qua sông." },
+            { en: "I wear a helmet on my bike.", vi: "Tôi đội mũ bảo hiểm khi đi xe đạp." },
+            { en: "Fasten your seat belt, please.", vi: "Làm ơn thắt dây an toàn." },
+            { en: "The car has four wheels.", vi: "Xe hơi có bốn bánh xe." },
+            { en: "My father is a bus driver.", vi: "Bố tôi là tài xế xe buýt." },
+            { en: "There are many passengers on the bus.", vi: "Có nhiều hành khách trên xe buýt." },
+            { en: "I go to school by bike.", vi: "Tôi đi học bằng xe đạp." },
+            { en: "He can drive a car.", vi: "Anh ấy có thể lái xe hơi." },
+            { en: "I ride my bike every morning.", vi: "Tôi đi xe đạp mỗi sáng." },
+            { en: "Birds can fly.", vi: "Chim có thể bay." },
+            { en: "I walk to school.", vi: "Tôi đi bộ đến trường." },
+            { en: "The bus stops at the corner.", vi: "Xe buýt dừng ở góc đường." },
+            { en: "Turn left at the traffic light.", vi: "Rẽ trái ở đèn giao thông." },
+            { en: "Don't cross the street now.", vi: "Đừng băng qua đường bây giờ." },
+            { en: "The car is fast.", vi: "Xe hơi chạy nhanh." },
+            { en: "The bus is slow.", vi: "Xe buýt chạy chậm." },
+            { en: "Be careful! There's an accident.", vi: "Cẩn thận! Có tai nạn kìa." },
+            { en: "Look at the road sign.", vi: "Nhìn biển báo giao thông." },
+            { en: "There's a lot of traffic today.", vi: "Hôm nay nhiều xe cộ." },
+            { en: "I go home by bus.", vi: "Tôi về nhà bằng xe buýt." },
+            { en: "Can you show me the direction to the park?", vi: "Bạn có thể chỉ đường đến công viên không?" },
+            { en: "Go straight ahead.", vi: "Đi thẳng." },
+            { en: "Turn left at the corner.", vi: "Rẽ trái ở góc đường." },
+            { en: "Turn left, please.", vi: "Làm ơn rẽ trái." },
+            { en: "Turn right at the traffic light.", vi: "Rẽ phải ở đèn giao thông." },
+            { en: "Cross the street carefully.", vi: "Băng qua đường cẩn thận nhé." },
+            { en: "Stop at the red light.", vi: "Dừng lại ở đèn đỏ." },
+            { en: "The traffic light is red.", vi: "Đèn giao thông màu đỏ." },
+            { en: "The road is long and wide.", vi: "Con đường dài và rộng." },
+            { en: "Turn right at the corner.", vi: "Rẽ phải ở góc đường." },
+            { en: "Go over the bridge.", vi: "Đi qua cây cầu." },
+            { en: "The car is under the bridge.", vi: "Chiếc xe ở dưới cầu." },
+            { en: "The plane flies over the city.", vi: "Máy bay bay qua thành phố." },
+            { en: "The bus stop is near my house.", vi: "Trạm xe buýt gần nhà tôi." },
+            { en: "The airport is far from here.", vi: "Sân bay ở xa đây." },
+            { en: "The park is opposite the bank.", vi: "Công viên đối diện ngân hàng." },
+            { en: "The post office is next to the bank.", vi: "Bưu điện cạnh ngân hàng." },
+            { en: "The school is between the park and the market.", vi: "Trường nằm giữa công viên và chợ." },
+            { en: "The tree is behind the house.", vi: "Cái cây ở sau ngôi nhà." },
+            { en: "The car is in front of the shop.", vi: "Xe ở trước cửa hàng." },
+            { en: "The bank is across from the cinema.", vi: "Ngân hàng đối diện rạp chiếu phim." },
+            { en: "Is there a hospital near here?", vi: "Có bệnh viện nào gần đây không?" },
+            { en: "My school is far away.", vi: "Trường tôi ở xa." },
+            { en: "What transportation do you use?", vi: "Bạn dùng phương tiện gì?" },
+            { en: "She goes to work by motorbike.", vi: "Cô ấy đi làm bằng xe máy." },
+            { en: "We fly to Da Nang by plane.", vi: "Chúng tôi bay đến Đà Nẵng bằng máy bay." },
+            { en: "We go fishing by boat.", vi: "Chúng tôi đi câu cá bằng thuyền." },
+            { en: "The ship sails on the sea.", vi: "Con tàu đi trên biển." },
+            { en: "Let's take a taxi.", vi: "Chúng ta đi taxi nhé." },
+            { en: "The truck carries fruit.", vi: "Xe tải chở trái cây." },
+            { en: "The helicopter is in the sky.", vi: "Trực thăng đang ở trên trời." },
+            { en: "The train station is big.", vi: "Ga tàu lớn." },
+            { en: "We go to the airport to fly.", vi: "Chúng tôi ra sân bay để bay." },
+            { en: "The passengers are on the bus.", vi: "Hành khách đang ở trên xe buýt." },
+            { en: "I buy a bus ticket.", vi: "Tôi mua vé xe buýt." },
+            { en: "My seat is near the window.", vi: "Ghế của tôi gần cửa sổ." },
+            { en: "Learn about road safety!", vi: "Học về an toàn giao thông nhé!" },
+            { en: "Wear a helmet when you ride a bike.", vi: "Đội mũ bảo hiểm khi đi xe đạp." },
+            { en: "I walk to school every day.", vi: "Tôi đi bộ đến trường mỗi ngày." },
+            { en: "I can ride a bicycle.", vi: "Tôi có thể đi xe đạp." }
+        ],
+        "Occupations": [
+            { en: "What is your father's job?", vi: "Nghề của bố bạn là gì?" },
+            { en: "My mother works in a school.", vi: "Mẹ tôi làm việc ở trường học." },
+            { en: "My uncle is a factory worker.", vi: "Chú tôi là công nhân nhà máy." },
+            { en: "My teacher is very kind.", vi: "Cô giáo của tôi rất tốt bụng." },
+            { en: "I am a student.", vi: "Tôi là học sinh." },
+            { en: "My father is a doctor.", vi: "Bố tôi là bác sĩ." },
+            { en: "The nurse helps the doctor.", vi: "Y tá giúp bác sĩ." },
+            { en: "I see a dentist every year.", vi: "Tôi gặp nha sĩ mỗi năm." },
+            { en: "My grandfather is a farmer.", vi: "Ông tôi là nông dân." },
+            { en: "My father is a bus driver.", vi: "Bố tôi là tài xế xe buýt." },
+            { en: "The pilot flies the airplane.", vi: "Phi công lái máy bay." },
+            { en: "The policeman helps people.", vi: "Cảnh sát giúp đỡ mọi người." },
+            { en: "The policewoman is very brave.", vi: "Nữ cảnh sát rất dũng cảm." },
+            { en: "The firefighter puts out fires.", vi: "Lính cứu hỏa dập tắt đám cháy." },
+            { en: "The postman delivers letters.", vi: "Người đưa thư giao thư." },
+            { en: "The mail carrier brings my letter.", vi: "Người phát thư mang thư của tôi." },
+            { en: "The shop assistant sells clothes.", vi: "Nhân viên cửa hàng bán quần áo." },
+            { en: "The cashier works in a supermarket.", vi: "Thu ngân làm việc ở siêu thị." },
+            { en: "The waiter brings our food.", vi: "Nam phục vụ mang đồ ăn của chúng tôi." },
+            { en: "The waitress is very friendly.", vi: "Nữ phục vụ rất thân thiện." },
+            { en: "My mother is a good cook.", vi: "Mẹ tôi là một đầu bếp giỏi." },
+            { en: "The chef works in a big restaurant.", vi: "Bếp trưởng làm việc ở nhà hàng lớn." },
+            { en: "The baker makes bread.", vi: "Thợ làm bánh làm bánh mì." },
+            { en: "The tailor makes clothes.", vi: "Thợ may may quần áo." },
+            { en: "The hairdresser cuts my hair.", vi: "Thợ cắt tóc cắt tóc cho tôi." },
+            { en: "The barber is cutting a boy's hair.", vi: "Thợ cạo đang cắt tóc cho cậu bé." },
+            { en: "The artist draws beautiful pictures.", vi: "Họa sĩ vẽ tranh đẹp." },
+            { en: "My sister is a singer.", vi: "Chị tôi là ca sĩ." },
+            { en: "She's a good dancer.", vi: "Cô ấy là một vũ công giỏi." },
+            { en: "He's a famous actor.", vi: "Anh ấy là diễn viên nổi tiếng." },
+            { en: "She's a famous actress.", vi: "Cô ấy là diễn viên nổi tiếng." },
+            { en: "My uncle is an engineer.", vi: "Chú tôi là kỹ sư." },
+            { en: "The builder builds houses.", vi: "Thợ xây dựng nhà cửa." },
+            { en: "The mechanic fixes cars.", vi: "Thợ máy sửa xe." },
+            { en: "The cleaner works in an office.", vi: "Nhân viên dọn dẹp làm việc trong văn phòng." },
+            { en: "The scientist works in a lab.", vi: "Nhà khoa học làm việc trong phòng thí nghiệm." },
+            { en: "The vet helps sick animals.", vi: "Bác sĩ thú y chữa động vật bị bệnh." },
+            { en: "The fisherman catches fish.", vi: "Ngư dân bắt cá." },
+            { en: "The soldier is very brave.", vi: "Người lính rất dũng cảm." },
+            { en: "The painter paints the wall.", vi: "Thợ sơn sơn tường." },
+            { en: "The gardener waters the flowers.", vi: "Người làm vườn tưới hoa." },
+            { en: "The photographer takes pictures.", vi: "Nhiếp ảnh gia chụp ảnh." },
+            { en: "The writer writes stories.", vi: "Nhà văn viết truyện." },
+            { en: "The reporter is on TV.", vi: "Phóng viên đang lên tivi." },
+            { en: "The musician plays the guitar.", vi: "Nhạc sĩ chơi đàn guitar." }
+        ],
+        "Time, Days & Schedules": [
+            { en: "What time is it?", vi: "Mấy giờ rồi?" },
+            { en: "It's seven o'clock.", vi: "Bây giờ là bảy giờ." },
+            { en: "It's half past six.", vi: "Bây giờ là sáu giờ rưỡi." },
+            { en: "It's a quarter past nine.", vi: "Bây giờ là chín giờ mười lăm." },
+            { en: "It's a quarter to eight.", vi: "Bảy giờ bốn mươi lăm phút." },
+            { en: "It's ten minutes to nine.", vi: "Còn mười phút nữa là chín giờ." },
+            { en: "A minute has sixty seconds.", vi: "Một phút có sáu mươi giây." },
+            { en: "I get up at six in the morning.", vi: "Tôi dậy lúc sáu giờ sáng." },
+            { en: "I play football in the afternoon.", vi: "Tôi chơi bóng đá vào buổi chiều." },
+            { en: "I watch TV in the evening.", vi: "Tôi xem ti vi vào buổi tối." },
+            { en: "I go to bed at night.", vi: "Tôi đi ngủ vào ban đêm." },
+            { en: "There are seven days in a week.", vi: "Có bảy ngày trong một tuần." },
+            { en: "A week has seven days.", vi: "Một tuần có bảy ngày." },
+            { en: "I visit my grandparents at the weekend.", vi: "Tôi thăm ông bà vào cuối tuần." },
+            { en: "There are twelve months in a year.", vi: "Có mười hai tháng trong một năm." },
+            { en: "A year has twelve months.", vi: "Một năm có mười hai tháng." },
+            { en: "Today is Monday.", vi: "Hôm nay là thứ hai." },
+            { en: "Yesterday was Sunday.", vi: "Hôm qua là Chủ nhật." },
+            { en: "Tomorrow will be Tuesday.", vi: "Ngày mai sẽ là thứ ba." },
+            { en: "I go to school on Monday.", vi: "Tôi đi học vào thứ hai." },
+            { en: "I have math on Tuesday.", vi: "Tôi học Toán vào thứ ba." },
+            { en: "We have English on Wednesday.", vi: "Chúng tôi học tiếng Anh vào thứ tư." },
+            { en: "I play football on Thursday.", vi: "Tôi chơi bóng vào thứ năm." },
+            { en: "We have art on Friday.", vi: "Chúng tôi học mỹ thuật vào thứ sáu." },
+            { en: "We don't go to school on Saturday.", vi: "Chúng tôi không đi học vào thứ bảy." },
+            { en: "Sunday is a holiday.", vi: "Chủ nhật là ngày nghỉ." },
+            { en: "We have morning classes at eight.", vi: "Chúng tôi học buổi sáng lúc tám giờ." },
+            { en: "We play during break time.", vi: "Chúng tôi chơi trong giờ ra chơi." },
+            { en: "This is my timetable.", vi: "Đây là thời khóa biểu của tôi." },
+            { en: "English is my favorite subject.", vi: "Tiếng Anh là môn học yêu thích của tôi." },
+            { en: "School starts at seven o'clock.", vi: "Trường bắt đầu lúc bảy giờ." },
+            { en: "School finishes at four o'clock.", vi: "Trường kết thúc lúc bốn giờ." },
+            { en: "I wash my face before breakfast.", vi: "Tôi rửa mặt trước bữa sáng." },
+            { en: "I watch TV after dinner.", vi: "Tôi xem ti vi sau bữa tối." },
+            { en: "I go to bed at nine o'clock.", vi: "Tôi đi ngủ lúc chín giờ." },
+            { en: "I study in the morning.", vi: "Tôi học vào buổi sáng." },
+            { en: "We don't go to school on Sunday.", vi: "Chúng tôi không đi học vào Chủ nhật." },
+            { en: "I brush my teeth every morning.", vi: "Tôi đánh răng mỗi sáng." },
+            { en: "I always do my homework.", vi: "Tôi luôn làm bài tập." },
+            { en: "I usually get up early.", vi: "Tôi thường dậy sớm." },
+            { en: "I sometimes watch TV at night.", vi: "Tôi thỉnh thoảng xem ti vi buổi tối." },
+            { en: "I never go to bed late.", vi: "Tôi không bao giờ ngủ muộn." },
+            { en: "I have a new watch.", vi: "Tôi có một chiếc đồng hồ đeo tay mới." },
+            { en: "There are 24 hours in a day.", vi: "Có 24 giờ trong một ngày." },
+            { en: "Wait a minute, please.", vi: "Làm ơn chờ một phút." },
+            { en: "There are 60 seconds in a minute.", vi: "Có 60 giây trong một phút." },
+            { en: "It's six o'clock.", vi: "Bây giờ là sáu giờ." },
+            { en: "It's half past ten.", vi: "Bây giờ là mười giờ rưỡi." },
+            { en: "It's quarter past three.", vi: "Bây giờ là ba giờ mười lăm." },
+            { en: "It's quarter to nine.", vi: "Còn mười lăm phút nữa là chín giờ." },
+            { en: "I get up in the morning.", vi: "Tôi thức dậy vào buổi sáng." },
+            { en: "We play in the afternoon.", vi: "Chúng tôi chơi vào buổi chiều." },
+            { en: "I sleep at night.", vi: "Tôi ngủ vào ban đêm." },
+            { en: "Today is a sunny day.", vi: "Hôm nay là một ngày nắng." },
+            { en: "Tomorrow is Tuesday.", vi: "Ngày mai là thứ Ba." },
+            { en: "I play football at the weekend.", vi: "Tôi chơi bóng đá vào cuối tuần." },
+            { en: "I have P.E. on Wednesday.", vi: "Tôi có môn Thể dục vào thứ Tư." },
+            { en: "We study Art on Thursday.", vi: "Chúng tôi học Mỹ thuật vào thứ Năm." },
+            { en: "I play music on Friday.", vi: "Tôi học nhạc vào thứ Sáu." },
+            { en: "I visit my grandparents on Saturday.", vi: "Tôi thăm ông bà vào thứ Bảy." },
+            { en: "We go to the park on Sunday.", vi: "Chúng tôi đi công viên vào Chủ nhật." },
+            { en: "January is the first month of the year.", vi: "Tháng Một là tháng đầu tiên trong năm." },
+            { en: "February has 28 days.", vi: "Tháng Hai có 28 ngày." },
+            { en: "My birthday is in March.", vi: "Sinh nhật của tôi vào tháng Ba." },
+            { en: "It rains in April.", vi: "Tháng Tư trời hay mưa." },
+            { en: "We have holidays in May.", vi: "Chúng tôi có kỳ nghỉ vào tháng Năm." },
+            { en: "It's hot in June.", vi: "Tháng Sáu trời nóng." },
+            { en: "I swim in July.", vi: "Tôi đi bơi vào tháng Bảy." },
+            { en: "School starts in August.", vi: "Trường học bắt đầu vào tháng Tám." },
+            { en: "We go back to school in September.", vi: "Chúng tôi trở lại trường vào tháng Chín." },
+            { en: "There are many festivals in October.", vi: "Có nhiều lễ hội vào tháng Mười." },
+            { en: "It's cool in November.", vi: "Tháng Mười Một trời mát mẻ." },
+            { en: "Christmas is in December.", vi: "Giáng sinh vào tháng Mười Hai." },
+            { en: "My birthday is in May.", vi: "Sinh nhật của tôi vào tháng Năm." },
+            { en: "We have a holiday on Sunday.", vi: "Chúng tôi có ngày nghỉ vào Chủ nhật." },
+            { en: "Look at the calendar on the wall.", vi: "Nhìn lịch treo tường đi." },
+            { en: "This is our class schedule.", vi: "Đây là thời khóa biểu của chúng tôi." }
+        ],
+        "Food & Drinks": [
+            { en: "I like Vietnamese food.", vi: "Tôi thích đồ ăn Việt Nam." },
+            { en: "I'd like a drink.", vi: "Tôi muốn một đồ uống." },
+            { en: "What do you eat for breakfast?", vi: "Bạn ăn gì cho bữa sáng?" },
+            { en: "I have lunch at school.", vi: "Tôi ăn trưa ở trường." },
+            { en: "We have dinner together.", vi: "Chúng tôi ăn tối cùng nhau." },
+            { en: "Breakfast is my favorite meal.", vi: "Bữa sáng là bữa ăn tôi thích nhất." },
+            { en: "I eat rice every day.", vi: "Tôi ăn cơm mỗi ngày." },
+            { en: "I like noodles.", vi: "Tôi thích ăn mì." },
+            { en: "I have bread and milk for breakfast.", vi: "Tôi ăn bánh mì và uống sữa cho bữa sáng." },
+            { en: "I eat a sandwich at lunch.", vi: "Tôi ăn bánh mì kẹp vào bữa trưa." },
+            { en: "I like chicken soup.", vi: "Tôi thích súp gà." },
+            { en: "I eat porridge in the morning.", vi: "Tôi ăn cháo vào buổi sáng." },
+            { en: "I like meat.", vi: "Tôi thích thịt." },
+            { en: "I don't eat beef.", vi: "Tôi không ăn thịt bò." },
+            { en: "My father likes pork.", vi: "Bố tôi thích thịt heo." },
+            { en: "We have chicken for lunch.", vi: "Chúng tôi ăn gà vào bữa trưa." },
+            { en: "I eat fish and rice.", vi: "Tôi ăn cá và cơm." },
+            { en: "I have two eggs.", vi: "Tôi có hai quả trứng." },
+            { en: "I eat sausage for breakfast.", vi: "Tôi ăn xúc xích cho bữa sáng." },
+            { en: "I like green vegetables.", vi: "Tôi thích rau xanh." },
+            { en: "Rabbits like carrots.", vi: "Thỏ thích cà rốt." },
+            { en: "I have tomato soup.", vi: "Tôi có súp cà chua." },
+            { en: "I eat potatoes with meat.", vi: "Tôi ăn khoai tây với thịt." },
+            { en: "The soup has onions.", vi: "Súp có hành tây." },
+            { en: "I eat fruit every day.", vi: "Tôi ăn trái cây mỗi ngày." },
+            { en: "I like apples.", vi: "Tôi thích táo." },
+            { en: "Monkeys like bananas.", vi: "Khỉ thích chuối." },
+            { en: "I drink orange juice.", vi: "Tôi uống nước cam." },
+            { en: "I like mangoes.", vi: "Tôi thích xoài." },
+            { en: "We eat watermelon in summer.", vi: "Chúng tôi ăn dưa hấu vào mùa hè." },
+            { en: "Grapes are sweet.", vi: "Nho rất ngọt." },
+            { en: "I drink milk every morning.", vi: "Tôi uống sữa mỗi sáng." },
+            { en: "I like apple juice.", vi: "Tôi thích nước ép táo." },
+            { en: "I drink water after PE.", vi: "Tôi uống nước sau tiết thể dục." },
+            { en: "My grandma drinks tea.", vi: "Bà tôi uống trà." },
+            { en: "My dad drinks coffee.", vi: "Bố tôi uống cà phê." },
+            { en: "I don't drink soda.", vi: "Tôi không uống nước ngọt có ga." },
+            { en: "I like chocolate ice cream.", vi: "Tôi thích kem sô cô la." },
+            { en: "The cake is sweet.", vi: "Bánh ngọt." },
+            { en: "I like cookies.", vi: "Tôi thích bánh quy." },
+            { en: "Don't eat too much candy.", vi: "Đừng ăn quá nhiều kẹo." },
+            { en: "I eat chocolate on my birthday.", vi: "Tôi ăn sô cô la vào sinh nhật." },
+            { en: "Add some salt to the soup.", vi: "Cho một ít muối vào súp." },
+            { en: "I put sugar in my tea.", vi: "Tôi cho đường vào trà." },
+            { en: "Butter is made from milk.", vi: "Bơ được làm từ sữa." },
+            { en: "I like cheese sandwiches.", vi: "Tôi thích bánh mì kẹp phô mai." },
+            { en: "I'm hungry. Let's eat!", vi: "Tôi đói rồi. Ăn thôi!" },
+            { en: "I'm thirsty.", vi: "Tôi khát." },
+            { en: "The food is delicious.", vi: "Thức ăn rất ngon." },
+            { en: "My mom can cook very well.", vi: "Mẹ tôi nấu ăn rất ngon." },
+            { en: "Let's eat dinner now.", vi: "Hãy ăn tối ngay bây giờ." },
+            { en: "Drink your milk, please.", vi: "Làm ơn uống sữa của con đi." }
+        ],
+        "Sports & Games": [
+            { en: "I like sports.", vi: "Tôi thích thể thao." },
+            { en: "Let's play a game!", vi: "Chúng ta cùng chơi trò chơi nhé!" },
+            { en: "I play football after school.", vi: "Tôi chơi bóng đá sau giờ học." },
+            { en: "He plays football every day.", vi: "Cậu ấy chơi bóng đá mỗi ngày." },
+            { en: "We play basketball at school.", vi: "Chúng tôi chơi bóng rổ ở trường." },
+            { en: "She plays volleyball with her friends.", vi: "Cô ấy chơi bóng chuyền với bạn." },
+            { en: "I play badminton with my father.", vi: "Tôi chơi cầu lông với bố tôi." },
+            { en: "They play tennis on weekends.", vi: "Họ chơi quần vợt vào cuối tuần." },
+            { en: "We play table tennis in the gym.", vi: "Chúng tôi chơi bóng bàn trong phòng thể thao." },
+            { en: "I go swimming on Sunday.", vi: "Tôi đi bơi vào Chủ nhật." },
+            { en: "I can run fast.", vi: "Tôi có thể chạy nhanh." },
+            { en: "I can jump high.", vi: "Tôi có thể nhảy cao." },
+            { en: "I can skate in the park.", vi: "Tôi có thể trượt patin trong công viên." },
+            { en: "We ski in winter.", vi: "Chúng tôi trượt tuyết vào mùa đông." },
+            { en: "I ride a bike to school.", vi: "Tôi đi học bằng xe đạp." },
+            { en: "My grandpa plays chess.", vi: "Ông tôi chơi cờ vua." },
+            { en: "We play cards after dinner.", vi: "Chúng tôi chơi bài sau bữa tối." },
+            { en: "Let's play hide-and-seek!", vi: "Chúng ta chơi trốn tìm nhé!" },
+            { en: "We play tug of war on Sports Day.", vi: "Chúng tôi kéo co vào Ngày Thể thao." },
+            { en: "I like skipping rope.", vi: "Tôi thích nhảy dây." },
+            { en: "We have a race at school.", vi: "Chúng tôi có cuộc đua ở trường." },
+            { en: "My brother is a football player.", vi: "Anh tôi là cầu thủ bóng đá." },
+            { en: "We play in a team.", vi: "Chúng tôi chơi theo đội." },
+            { en: "Our team wins the game.", vi: "Đội chúng tôi thắng trò chơi." },
+            { en: "We don't want to lose.", vi: "Chúng tôi không muốn thua." },
+            { en: "The score is two to one.", vi: "Tỷ số là hai – một." },
+            { en: "The referee blows the whistle.", vi: "Trọng tài thổi còi." },
+            { en: "The referee has a whistle.", vi: "Trọng tài có một cái còi." },
+            { en: "The ball is on the field.", vi: "Quả bóng ở trên sân." },
+            { en: "He hits the ball with a bat.", vi: "Cậu ấy đánh bóng bằng gậy." },
+            { en: "The ball goes over the net.", vi: "Quả bóng bay qua lưới." },
+            { en: "We play football on the field.", vi: "Chúng tôi chơi bóng đá trên sân." },
+            { en: "The match is in the stadium.", vi: "Trận đấu diễn ra trong sân vận động." },
+            { en: "The swimming pool is clean.", vi: "Hồ bơi sạch sẽ." },
+            { en: "We have P.E. in the gym.", vi: "Chúng tôi học thể dục trong phòng tập." },
+            { en: "We have Sports Day in March.", vi: "Chúng tôi có Ngày Thể thao vào tháng Ba." },
+            { en: "I do morning exercise.", vi: "Tôi tập thể dục buổi sáng." },
+            { en: "We practice football every afternoon.", vi: "Chúng tôi luyện tập bóng đá mỗi chiều." },
+            { en: "The coach teaches us football.", vi: "Huấn luyện viên dạy chúng tôi bóng đá." },
+            { en: "There are ten players in the team.", vi: "Có mười cầu thủ trong đội." },
+            { en: "We cheer for our team.", vi: "Chúng tôi cổ vũ cho đội của mình." },
+            { en: "He scores a goal.", vi: "Cậu ấy ghi bàn thắng." },
+            { en: "She can run fast.", vi: "Cô ấy có thể chạy nhanh." },
+            { en: "I can jump rope five times.", vi: "Tôi có thể nhảy dây năm lần." },
+            { en: "I can swim very well.", vi: "Tôi bơi rất giỏi." },
+            { en: "I like to play sports every day.", vi: "Tôi thích chơi thể thao mỗi ngày." },
+            { en: "We have fun at the playground.", vi: "Chúng tôi vui chơi ở sân." },
+            { en: "Playing sports makes me healthy.", vi: "Chơi thể thao giúp tôi khỏe mạnh." }
+        ],
+        "Festivals & Holidays": [
+            { en: "Tet is a big festival in Vietnam.", vi: "Tết là lễ hội lớn ở Việt Nam." },
+            { en: "We have a long holiday in summer.", vi: "Chúng tôi có kỳ nghỉ dài vào mùa hè." },
+            { en: "We decorate our house at Tet.", vi: "Chúng tôi trang trí nhà vào dịp Tết." },
+            { en: "Lunar New Year is in January or February.", vi: "Tết Âm lịch vào tháng Một hoặc Hai." },
+            { en: "Happy New Year!", vi: "Chúc mừng năm mới!" },
+            { en: "We visit friends on New Year's Day.", vi: "Chúng tôi đi thăm bạn bè vào ngày đầu năm." },
+            { en: "We have a Christmas tree.", vi: "Chúng tôi có cây thông Noel." },
+            { en: "Christmas Day is on December 25th.", vi: "Giáng sinh là ngày 25 tháng 12." },
+            { en: "We paint eggs at Easter.", vi: "Chúng tôi tô trứng vào lễ Phục sinh." },
+            { en: "We wear costumes at Halloween.", vi: "Chúng tôi mặc trang phục hóa trang vào Halloween." },
+            { en: "Children carry lanterns at the Mid-Autumn Festival.", vi: "Trẻ em rước đèn vào Tết Trung thu." },
+            { en: "We get gifts on Children's Day.", vi: "Chúng tôi nhận quà vào Ngày Quốc tế Thiếu nhi." },
+            { en: "We give flowers on Teacher's Day.", vi: "Chúng tôi tặng hoa vào Ngày Nhà giáo." },
+            { en: "We love our moms on Women's Day.", vi: "Chúng tôi yêu mẹ vào Ngày Phụ nữ." },
+            { en: "Independence Day is on September 2nd.", vi: "Quốc khánh là ngày 2 tháng 9." },
+            { en: "I get a cake on my birthday.", vi: "Tôi có bánh sinh nhật vào ngày sinh nhật." },
+            { en: "They have a big wedding party.", vi: "Họ có một tiệc cưới lớn." },
+            { en: "We have a party on Sunday.", vi: "Chúng tôi tổ chức tiệc vào Chủ nhật." },
+            { en: "We watch fireworks on New Year's Eve.", vi: "Chúng tôi xem pháo hoa vào đêm Giao thừa." },
+            { en: "We watch fireworks at Tet.", vi: "Chúng tôi xem pháo hoa vào Tết." },
+            { en: "We decorate our classroom.", vi: "Chúng tôi trang trí lớp học." },
+            { en: "The decorations are beautiful.", vi: "Những đồ trang trí thật đẹp." },
+            { en: "I carry a lantern at Mid-Autumn Festival.", vi: "Tôi rước đèn lồng vào Tết Trung thu." },
+            { en: "I get gifts from my parents.", vi: "Tôi nhận quà từ bố mẹ." },
+            { en: "I give a present to my friend.", vi: "Tôi tặng quà cho bạn mình." },
+            { en: "I make a card for my teacher.", vi: "Tôi làm thiệp cho cô giáo." },
+            { en: "We give flowers on holidays.", vi: "Chúng tôi tặng hoa vào ngày lễ." },
+            { en: "We eat cake at parties.", vi: "Chúng tôi ăn bánh trong bữa tiệc." },
+            { en: "Children eat candies at festivals.", vi: "Trẻ em ăn kẹo trong lễ hội." },
+            { en: "We sing New Year songs.", vi: "Chúng tôi hát bài hát năm mới." },
+            { en: "We dance at the party.", vi: "Chúng tôi nhảy trong bữa tiệc." },
+            { en: "We watch the parade on TV.", vi: "Chúng tôi xem diễu hành trên TV." },
+            { en: "Children wear masks at Halloween.", vi: "Trẻ em đeo mặt nạ vào Halloween." },
+            { en: "She wears a witch costume.", vi: "Cô ấy mặc trang phục phù thủy." },
+            { en: "We light candles on the cake.", vi: "Chúng tôi thắp nến trên bánh." },
+            { en: "I wish you happiness!", vi: "Tôi chúc bạn hạnh phúc!" },
+            { en: "Happy birthday to you!", vi: "Chúc mừng sinh nhật bạn!" },
+            { en: "We celebrate Tet with our family.", vi: "Chúng tôi ăn mừng Tết với gia đình." },
+            { en: "The celebration is fun.", vi: "Buổi lễ thật vui." },
+            { en: "We visit our relatives at Tet.", vi: "Chúng tôi thăm họ hàng vào Tết." },
+            { en: "I get lucky money at Tet.", vi: "Tôi nhận lì xì vào Tết." },
+            { en: "The lucky money is in a red envelope.", vi: "Tiền lì xì ở trong bao đỏ." },
+            { en: "We wear traditional clothes at Tet.", vi: "Chúng tôi mặc đồ truyền thống vào Tết." },
+            { en: "We wear new clothes for Tet.", vi: "Chúng tôi mặc đồ mới cho Tết." },
+            { en: "We clean the house before Tet.", vi: "Chúng tôi dọn nhà trước Tết." },
+            { en: "We have a big family meal at Tet.", vi: "Chúng tôi có bữa ăn gia đình lớn vào Tết." },
+            { en: "Tet is a spring festival.", vi: "Tết là lễ hội mùa xuân." },
+            { en: "A new year begins in January.", vi: "Một năm mới bắt đầu vào tháng Một." },
+            { en: "I wish you health and happiness.", vi: "Tôi chúc bạn sức khỏe và hạnh phúc." }
+        ]
+      };
+
+      // --- From hooks/useSpeechSynthesis.ts ---
+      const useSpeechSynthesis = () => {
+        const [isSpeaking, setIsSpeaking] = useState(false);
+        const utteranceRef = useRef(null);
+
+        const cancel = useCallback(() => {
+          if (window.speechSynthesis) {
+              window.speechSynthesis.cancel();
+          }
+        }, []);
+
+        useEffect(() => {
+          return () => {
+              cancel();
+          }
+        }, [cancel]);
+
+        const speak = useCallback((text, options = {}) => {
+          cancel();
+          
+          if (!('speechSynthesis' in window)) {
+              console.warn("Speech Synthesis not supported in this browser.");
+              if (options.onEnd) options.onEnd();
+              return;
+          }
+          
+          const { rate = 1.0, onBoundary, onEnd } = options;
+
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.lang = 'en-US';
+          utterance.rate = rate;
+          utteranceRef.current = utterance;
+
+          utterance.onstart = () => setIsSpeaking(true);
+          
+          if (onBoundary) {
+            utterance.onboundary = (event) => {
+              if (event.name === 'word') {
+                const wordIndex = (text.substring(0, event.charIndex).match(/\\s+/g) || []).length;
+                onBoundary(wordIndex);
+              }
+            };
+          }
+
+          utterance.onend = () => {
+            setIsSpeaking(false);
+            utteranceRef.current = null;
+            if (onEnd) onEnd();
+          };
+
+          utterance.onerror = (event) => {
+            if (event.error !== 'interrupted') {
+              console.error('SpeechSynthesis Error:', event.error);
+            }
+            setIsSpeaking(false);
+            utteranceRef.current = null;
+            if (onEnd) onEnd();
+          };
+          
+          setTimeout(() => {
+              window.speechSynthesis.speak(utterance);
+          }, 50);
+
+        }, [cancel]);
+
+        return { speak, cancel, isSpeaking };
+      };
+
+      // --- From components/Fireworks.tsx ---
+      const Fireworks = () => {
+        const canvasRef = useRef(null);
+        const animationFrameId = useRef();
+        const particles = useRef([]);
+
+        const createParticle = (x, y) => {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = Math.random() * 6 + 2;
+          return {
+            x, y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            color: `hsl(${Math.random() * 360}, 100%, 70%)`,
+            size: Math.random() * 3 + 1,
+            life: 1,
+            fade: 0.02,
+          };
+        };
+
+        const createExplosion = () => {
+          if (!canvasRef.current) return;
+          const x = Math.random() * canvasRef.current.width;
+          const y = Math.random() * canvasRef.current.height / 2;
+          for (let i = 0; i < 50; i++) {
+            particles.current.push(createParticle(x, y));
+          }
+        };
+
+        const animate = () => {
+          if (!canvasRef.current) return;
+          const ctx = canvasRef.current.getContext('2d');
+          if (!ctx) return;
+          
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+          ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+          ctx.globalCompositeOperation = 'lighter';
+          
+          particles.current = particles.current.filter(p => p.life > 0);
+
+          particles.current.forEach(p => {
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += 0.05;
+            p.life -= p.fade;
+            
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fillStyle = `hsla(${p.color.match(/\\d+/)?.[0]}, 100%, 70%, ${p.life})`;
+            ctx.fill();
+          });
+
+          animationFrameId.current = requestAnimationFrame(animate);
+        };
+
+        useEffect(() => {
+          const canvas = canvasRef.current;
+          if (canvas) {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            const handleResize = () => {
+              canvas.width = window.innerWidth;
+              canvas.height = window.innerHeight;
+            };
+            window.addEventListener('resize', handleResize);
+            
+            const intervalIds = [];
+            for(let i = 0; i < 5; i++) {
+                intervalIds.push(setTimeout(() => createExplosion(), Math.random() * 1000));
+            }
+            const mainInterval = setInterval(createExplosion, 500 + Math.random() * 500);
+            intervalIds.push(mainInterval);
+            animate();
+            return () => {
+              window.removeEventListener('resize', handleResize);
+              if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
+              intervalIds.forEach(clearInterval);
+              particles.current = [];
+            };
+          }
+        }, []);
+
+        return React.createElement('canvas', { ref: canvasRef, className: "fixed top-0 left-0 w-full h-full pointer-events-none z-50" });
+      };
+
+      // --- From components/TopicCongratsScreen.tsx ---
+      const TopicCongratsScreen = ({
+        playerName, topicName, correctCount, totalCount, onPlayAgain, onChooseAnotherTopic,
+      }) => {
+        return React.createElement('div', { className: "relative flex flex-col items-center gap-6 text-center p-4 animate-fade-in" },
+          React.createElement(Fireworks),
+          React.createElement('div', { className: "text-2xl sm:text-3xl md:text-4xl text-green-600 font-extrabold" },
+            React.createElement('p', null, "Chúc mừng ", React.createElement('strong', { className: "text-purple-600" }, playerName), "!"),
+            React.createElement('p', { className: "mt-2" }, `Bạn đã hoàn thành chủ đề "${topicName}".`)
+          ),
+          React.createElement('p', { className: "text-xl sm:text-2xl text-slate-700 font-semibold" }, `Bạn đã trả lời đúng ${correctCount}/${totalCount} câu.`),
+          React.createElement('div', { className: "flex flex-col sm:flex-row gap-4 mt-6 w-full max-w-md" },
+            React.createElement('button', {
+              onClick: onPlayAgain,
+              className: "w-full p-4 text-xl rounded-2xl bg-blue-500 text-white font-bold transform hover:scale-105 hover:bg-blue-600 transition-all shadow-lg"
+            }, "Chơi lại chủ đề này"),
+            React.createElement('button', {
+              onClick: onChooseAnotherTopic,
+              className: "w-full p-4 text-xl rounded-2xl bg-orange-500 text-white font-bold transform hover:scale-105 hover:bg-orange-600 transition-all shadow-lg"
+            }, "Chọn chủ đề khác")
+          )
+        );
+      };
+
+      // --- From components/StartScreen.tsx ---
+      const StartScreen = ({ onStart }) => {
+        const [name, setName] = useState('');
+        const handleStartClick = () => {
+          if (name.trim()) {
+            onStart(name.trim());
+          } else {
+            alert('Vui lòng nhập tên của bạn để bắt đầu!');
+          }
+        };
+        const handleKeyPress = (event) => {
+          if (event.key === 'Enter') handleStartClick();
+        };
+
+        return React.createElement('div', { className: "flex flex-col items-center gap-6 animate-fade-in" },
+          React.createElement('input', {
+            type: "text",
+            value: name,
+            onChange: (e) => setName(e.target.value),
+            onKeyPress: handleKeyPress,
+            placeholder: "Nhập tên của bạn...",
+            className: "font-nunito text-lg sm:text-xl p-3 px-5 rounded-2xl border-2 border-purple-400 text-center w-full max-w-sm focus:outline-none focus:ring-4 focus:ring-purple-300 transition-shadow shadow-inner"
+          }),
+          React.createElement('button', {
+            onClick: handleStartClick,
+            className: "p-4 px-10 text-xl sm:text-2xl rounded-2xl w-full max-w-sm bg-green-500 text-white font-bold transform hover:scale-105 hover:bg-green-600 active:scale-100 transition-all shadow-lg hover:shadow-xl"
+          }, "Bắt đầu")
+        );
+      };
+
+      // --- From components/TopicSelectionScreen.tsx ---
+      const topicColors = [
+        'from-red-500 to-red-600', 'from-blue-500 to-blue-600', 'from-green-500 to-green-600',
+        'from-orange-500 to-orange-600', 'from-cyan-500 to-cyan-600', 'from-pink-500 to-pink-600',
+      ];
+      const TopicSelectionScreen = ({ topics, onSelectTopic }) => {
+        return React.createElement('div', { className: "flex flex-col items-center gap-4 w-full animate-fade-in" },
+          React.createElement('h2', { className: "text-2xl sm:text-3xl font-bold mb-4 text-slate-700" }, "Chọn một chủ đề để học:"),
+          React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-2 gap-5 w-full max-w-2xl" },
+            topics.map((topic, index) => (
+              React.createElement('button', {
+                key: topic,
+                onClick: () => onSelectTopic(topic),
+                className: `p-4 text-lg text-white font-bold rounded-2xl transform hover:-translate-y-1 transition-all shadow-lg hover:shadow-xl bg-gradient-to-br ${topicColors[index % topicColors.length]}`
+              }, topic)
+            ))
+          )
+        );
+      };
+
+      // --- From components/GameScreen.tsx ---
+      const shuffle = (array) => {
+        const newArray = [...array];
+        for (let i = newArray.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+        }
+        return newArray;
+      };
+      const pastelColors = [
+        'bg-sky-200 border-sky-400 text-sky-800 hover:bg-sky-300 hover:border-sky-500',
+        'bg-emerald-200 border-emerald-400 text-emerald-800 hover:bg-emerald-300 hover:border-emerald-500',
+        'bg-rose-200 border-rose-400 text-rose-800 hover:bg-rose-300 hover:border-rose-500',
+        'bg-amber-200 border-amber-400 text-amber-800 hover:bg-amber-300 hover:border-amber-500',
+        'bg-violet-200 border-violet-400 text-violet-800 hover:bg-violet-300 hover:border-violet-500',
+        'bg-teal-200 border-teal-400 text-teal-800 hover:bg-teal-300 hover:border-teal-500',
+      ];
+      const GameScreen = ({ sentences, onTopicComplete, onChooseAnotherTopic }) => {
+        const [currentIndex, setCurrentIndex] = useState(0);
+        const [currentWords, setCurrentWords] = useState([]);
+        const [shuffledWords, setShuffledWords] = useState([]);
+        const [playerAnswer, setPlayerAnswer] = useState([]);
+        const [mistakeCount, setMistakeCount] = useState(0);
+        const [incorrectWord, setIncorrectWord] = useState(null);
+        const [message, setMessage] = useState(null);
+        const [score, setScore] = useState(0);
+        const [correctlyAnswered, setCorrectlyAnswered] = useState(0);
+        const [isSentenceDone, setIsSentenceDone] = useState(false);
+        const [highlightedIndex, setHighlightedIndex] = useState(-1);
+        const allowSecondPlay = useRef(true);
+        const { speak, cancel, isSpeaking } = useSpeechSynthesis();
+        const currentSentence = useMemo(() => sentences[currentIndex], [sentences, currentIndex]);
+
+        const startNewSentence = useCallback(() => {
+          if (currentIndex >= sentences.length) {
+            onTopicComplete(correctlyAnswered, sentences.length);
+            return;
+          }
+          setIsSentenceDone(false);
+          setPlayerAnswer([]);
+          setMistakeCount(0);
+          setMessage(null);
+          setHighlightedIndex(-1);
+          const cleanSentence = sentences[currentIndex].en.replace(/[.!?]$/, '');
+          const words = cleanSentence.split(' ');
+          setCurrentWords(words);
+          setShuffledWords(shuffle(words));
+          allowSecondPlay.current = true;
+          speak(sentences[currentIndex].en, {
+              rate: 0.9,
+              onEnd: () => {
+                  if (allowSecondPlay.current) {
+                      setTimeout(() => {
+                          if (allowSecondPlay.current) speak(sentences[currentIndex].en, { rate: 0.9 });
+                      }, 400);
+                  }
+              }
+          });
+        }, [currentIndex, sentences, onTopicComplete, correctlyAnswered, speak]);
+        
+        const stopPendingActions = useCallback(() => {
+          allowSecondPlay.current = false;
+          cancel();
+        }, [cancel]);
+
+        useEffect(() => {
+          startNewSentence();
+          return stopPendingActions;
+        }, [currentIndex]);
+        
+        useEffect(() => {
+          return stopPendingActions;
+        }, [stopPendingActions]);
+
+        const handleListenAgain = () => {
+          if (currentSentence) {
+              stopPendingActions();
+              speak(currentSentence.en, { rate: 0.9 });
+          }
+        };
+
+        const handleWordClick = (word, index) => {
+          if (isSentenceDone) return;
+          stopPendingActions();
+          const correctWord = currentWords[playerAnswer.length];
+          if (word === correctWord) {
+            setPlayerAnswer([...playerAnswer, word]);
+            setShuffledWords(prev => {
+              const newArr = [...prev];
+              const wordIndex = newArr.findIndex((w, i) => w === word && i === index);
+              if (wordIndex > -1) newArr[wordIndex] = '';
+              return newArr;
+            });
+            setMessage(null);
+            if (playerAnswer.length + 1 === currentWords.length) {
+              setIsSentenceDone(true);
+              let newScore = score;
+              let newCorrectlyAnswered = correctlyAnswered;
+              if (mistakeCount <= 2) {
+                newScore += 10;
+                newCorrectlyAnswered++;
+                setScore(newScore);
+                setCorrectlyAnswered(newCorrectlyAnswered);
+                setMessage({ text: 'Chính xác! +10 điểm.', type: 'success' });
+              } else {
+                setMessage({ text: `Bạn đã sai ${mistakeCount} lần, không được cộng điểm câu này.`, type: 'error' });
+              }
+              speak(currentSentence.en, { 
+                  onBoundary: (wordIndex) => setHighlightedIndex(wordIndex),
+                  onEnd: () => {
+                    setHighlightedIndex(-1);
+                    setTimeout(() => setCurrentIndex(prev => prev + 1), 2000);
+                  }
+              });
+            }
+          } else {
+            setMistakeCount(prev => prev + 1);
+            setIncorrectWord(`${word}-${index}`);
+            setMessage({ text: `Sai rồi! (Số lần sai: ${mistakeCount + 1})`, type: 'error' });
+            setTimeout(() => setIncorrectWord(null), 500);
+          }
+        };
+
+        return React.createElement('div', { className: "flex flex-col items-center gap-2 w-full animate-fade-in" },
+          React.createElement('div', { className: "w-full text-center bg-purple-100/70 p-3 rounded-2xl" },
+            React.createElement('div', { className: "text-xl sm:text-2xl text-purple-900 italic font-semibold" }, `“${currentSentence?.vi}”`)
+          ),
+          React.createElement('div', { className: "text-2xl sm:text-3xl font-bold mt-2 mb-1 min-h-[100px] bg-violet-50 p-4 rounded-xl shadow-inner w-full flex items-center justify-center flex-wrap gap-x-2.5 gap-y-3" },
+            isSentenceDone ? 
+              currentSentence.en.split(' ').map((word, index) => React.createElement('span', { key: index, className: `inline-block px-1 py-1 rounded-md transition-all duration-200 ${highlightedIndex === index ? 'bg-yellow-300 text-black scale-110' : 'bg-transparent text-slate-800 scale-100'}`}, word)) :
+              currentWords.map((_, index) => React.createElement('div', { key: index, className: `h-16 w-24 flex items-center justify-center text-xl font-semibold p-2 rounded-lg ${playerAnswer[index] ? 'bg-purple-200 border-2 border-purple-500 text-purple-900' : 'bg-slate-200 border-2 border-dashed border-slate-400'}`}, playerAnswer[index]))
+          ),
+          React.createElement('div', { className: "min-h-[30px] text-xl font-bold" },
+            message && React.createElement('p', { className: `${message.type === 'success' ? 'text-green-600' : 'text-red-500'}` }, message.text)
+          ),
+          React.createElement('div', { className: "flex flex-wrap justify-center gap-3 mt-1 mb-4 w-full min-h-[120px]" },
+            shuffledWords.map((word, index) => {
+              const isUsed = word === '';
+              const isIncorrect = incorrectWord === `${word}-${index}`;
+              const pastelColor = pastelColors[index % pastelColors.length];
+              return React.createElement('button', {
+                key: index,
+                onClick: () => handleWordClick(word, index),
+                disabled: isUsed || isSentenceDone,
+                className: `text-xl font-bold py-3 px-5 rounded-xl border-b-4 transition-all duration-150 transform active:translate-y-0.5 active:border-b-2 ${isUsed ? 'opacity-0 pointer-events-none' : 'opacity-100'} ${isIncorrect ? 'border-red-500 animate-shake bg-red-100 text-red-600' : `${pastelColor} hover:-translate-y-1 hover:shadow-md`} ${isSentenceDone ? 'cursor-not-allowed' : ''}`
+              }, word);
+            })
+          ),
+          React.createElement('div', { className: "flex flex-wrap justify-center gap-4 my-4" },
+            React.createElement('button', { onClick: handleListenAgain, disabled: isSentenceDone || isSpeaking, className: "py-3 px-8 text-lg font-bold bg-purple-600 text-white rounded-xl shadow-md transform hover:-translate-y-1 transition-all disabled:bg-gray-400 disabled:cursor-not-allowed disabled:transform-none" }, "Nghe lại"),
+            React.createElement('button', { onClick: onChooseAnotherTopic, className: "py-3 px-8 text-lg font-bold bg-yellow-500 text-slate-800 rounded-xl shadow-md transform hover:-translate-y-1 transition-all" }, "Chọn chủ đề khác")
+          ),
+          React.createElement('div', { className: "text-xl font-bold text-purple-800 mt-4" }, `Điểm: ${score} | Hoàn thành: ${currentIndex}/${sentences.length}`)
+        );
+      };
+      
+      // --- From App.tsx ---
+      const App = () => {
+        const [gameState, setGameState] = useState(GameState.Start);
+        const [playerName, setPlayerName] = useState('');
+        const [selectedTopic, setSelectedTopic] = useState('');
+        const [topicSentences, setTopicSentences] = useState([]);
+        const [lastScore, setLastScore] = useState({ correct: 0, total: 0 });
+
+        const handleStart = useCallback((name) => {
+          setPlayerName(name);
+          setGameState(GameState.TopicSelection);
+        }, []);
+
+        const handleSelectTopic = useCallback((topicName) => {
+          setSelectedTopic(topicName);
+          setTopicSentences(topics[topicName]);
+          setGameState(GameState.Playing);
+        }, []);
+
+        const handleTopicComplete = useCallback((correct, total) => {
+          setLastScore({ correct, total });
+          setGameState(GameState.Congrats);
+        }, []);
+        
+        const handlePlayAgain = useCallback(() => {
+          if (selectedTopic && topics[selectedTopic]) {
+            setTopicSentences(topics[selectedTopic]);
+            setGameState(GameState.Playing);
+          } else {
+            setGameState(GameState.TopicSelection);
+          }
+        }, [selectedTopic]);
+
+        const handleChooseAnotherTopic = useCallback(() => {
+          setSelectedTopic('');
+          setTopicSentences([]);
+          setGameState(GameState.TopicSelection);
+        }, []);
+
+        const renderScreen = () => {
+          switch (gameState) {
+            case GameState.Start:
+              return React.createElement(StartScreen, { onStart: handleStart });
+            case GameState.TopicSelection:
+              return React.createElement(TopicSelectionScreen, { topics: Object.keys(topics), onSelectTopic: handleSelectTopic });
+            case GameState.Playing:
+              return React.createElement(GameScreen, { key: selectedTopic, sentences: topicSentences, onTopicComplete: handleTopicComplete, onChooseAnotherTopic: handleChooseAnotherTopic });
+            case GameState.Congrats:
+              return React.createElement(TopicCongratsScreen, {
+                  playerName: playerName,
+                  topicName: selectedTopic,
+                  correctCount: lastScore.correct,
+                  totalCount: lastScore.total,
+                  onPlayAgain: handlePlayAgain,
+                  onChooseAnotherTopic: handleChooseAnotherTopic,
+                });
+            default:
+              return React.createElement(StartScreen, { onStart: handleStart });
+          }
+        };
+
+        return React.createElement('div', { className: "bg-gradient-to-br from-violet-100 to-sky-100 min-h-screen w-full flex justify-center items-center p-4" },
+          React.createElement('main', { className: "container mx-auto text-center p-6 max-w-4xl w-full bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl shadow-violet-200" },
+            React.createElement('h1', { className: "text-3xl sm:text-4xl md:text-5xl font-extrabold text-violet-600 mb-1 [text-shadow:_1px_2px_2px_rgb(0_0_0_/_10%)]" }, "NGHE VÀ XẾP TỪ THÀNH CÂU"),
+            React.createElement('h2', { className: "text-xl sm:text-2xl md:text-3xl text-slate-500 font-semibold mb-5" }, "(Hỏi & Đáp)"),
+            renderScreen()
+          )
+        );
+      };
+
+      // --- From index.tsx ---
+      const rootElement = document.getElementById('root');
+      const root = ReactDOM.createRoot(rootElement);
+      root.render(React.createElement(App));
+    </script>
+</body>
+</html>
