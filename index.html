@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -1421,8 +1420,15 @@
           if (onBoundary) {
             utterance.onboundary = (event) => {
               if (event.name === 'word') {
-                const wordIndex = (text.substring(0, event.charIndex).match(/\\s+/g) || []).length;
-                onBoundary(wordIndex);
+                const words = text.split(' ');
+                let cumulativeLength = 0;
+                for (let i = 0; i < words.length; i++) {
+                  cumulativeLength += words[i].length + 1; // Add length of word + 1 for the space
+                  if (event.charIndex < cumulativeLength) {
+                      onBoundary(i);
+                      return; // Exit loop once the word is found
+                  }
+                }
               }
             };
           }
