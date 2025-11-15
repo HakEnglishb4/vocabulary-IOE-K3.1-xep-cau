@@ -1385,7 +1385,28 @@
       // --- From hooks/useSpeechSynthesis.ts ---
       const useSpeechSynthesis = () => {
         const [isSpeaking, setIsSpeaking] = useState(false);
+        const [voices, setVoices] = useState([]);
         const utteranceRef = useRef(null);
+
+        const updateVoices = useCallback(() => {
+          if ('speechSynthesis' in window) {
+            const availableVoices = window.speechSynthesis.getVoices();
+            const englishVoices = availableVoices.filter(voice => voice.lang.startsWith('en'));
+            setVoices(englishVoices);
+          }
+        }, []);
+
+        useEffect(() => {
+          if ('speechSynthesis' in window) {
+            updateVoices();
+            window.speechSynthesis.onvoiceschanged = updateVoices;
+            return () => {
+              if (window.speechSynthesis) {
+                window.speechSynthesis.onvoiceschanged = null;
+              }
+            }
+          }
+        }, [updateVoices]);
 
         const cancel = useCallback(() => {
           if (window.speechSynthesis) {
@@ -1408,11 +1429,14 @@
               return;
           }
           
-          const { rate = 1.0, onBoundary, onEnd } = options;
+          const { rate = 1.0, onBoundary, onEnd, voice } = options;
 
           const utterance = new SpeechSynthesisUtterance(text);
           utterance.lang = 'en-US';
           utterance.rate = rate;
+          if (voice) {
+            utterance.voice = voice;
+          }
           utteranceRef.current = utterance;
 
           utterance.onstart = () => setIsSpeaking(true);
@@ -1454,7 +1478,7 @@
 
         }, [cancel]);
 
-        return { speak, cancel, isSpeaking };
+        return { speak, cancel, isSpeaking, voices };
       };
 
       // --- From components/Fireworks.tsx ---
@@ -1647,7 +1671,26 @@
         const [isSentenceDone, setIsSentenceDone] = useState(false);
         const [highlightedIndex, setHighlightedIndex] = useState(-1);
         const allowSecondPlay = useRef(true);
-        const { speak, cancel, isSpeaking } = useSpeechSynthesis();
+        const { speak, cancel, isSpeaking, voices } = useSpeechSynthesis();
+        const [selectedVoiceURI, setSelectedVoiceURI] = useState(null);
+        
+        const selectedVoice = useMemo(() => {
+          if (!voices || voices.length === 0) return null;
+          if (selectedVoiceURI) {
+            return voices.find(v => v.voiceURI === selectedVoiceURI);
+          }
+          return voices.find(v => v.name === 'Google US English') || voices.find(v => v.default) || voices[0];
+        }, [voices, selectedVoiceURI]);
+
+        useEffect(() => {
+            if (voices.length > 0 && !selectedVoiceURI) {
+                const defaultVoice = voices.find(v => v.name === 'Google US English') || voices.find(v => v.default) || voices[0];
+                if (defaultVoice) {
+                    setSelectedVoiceURI(defaultVoice.voiceURI);
+                }
+            }
+        }, [voices, selectedVoiceURI]);
+
         const currentSentence = useMemo(() => sentences[currentIndex], [sentences, currentIndex]);
 
         const startNewSentence = useCallback(() => {
@@ -1665,17 +1708,20 @@
           setCurrentWords(words);
           setShuffledWords(shuffle(words));
           allowSecondPlay.current = true;
+          
+          const speakOptions = { rate: 0.9, voice: selectedVoice };
+
           speak(sentences[currentIndex].en, {
-              rate: 0.9,
+              ...speakOptions,
               onEnd: () => {
                   if (allowSecondPlay.current) {
                       setTimeout(() => {
-                          if (allowSecondPlay.current) speak(sentences[currentIndex].en, { rate: 0.9 });
+                          if (allowSecondPlay.current) speak(sentences[currentIndex].en, speakOptions);
                       }, 400);
                   }
               }
           });
-        }, [currentIndex, sentences, onTopicComplete, correctlyAnswered, speak]);
+        }, [currentIndex, sentences, onTopicComplete, correctlyAnswered, speak, selectedVoice]);
         
         const stopPendingActions = useCallback(() => {
           allowSecondPlay.current = false;
@@ -1694,7 +1740,7 @@
         const handleListenAgain = () => {
           if (currentSentence) {
               stopPendingActions();
-              speak(currentSentence.en, { rate: 0.9 });
+              speak(currentSentence.en, { rate: 0.9, voice: selectedVoice });
           }
         };
 
@@ -1725,6 +1771,7 @@
                 setMessage({ text: `Bạn đã sai ${mistakeCount} lần, không được cộng điểm câu này.`, type: 'error' });
               }
               speak(currentSentence.en, { 
+                  voice: selectedVoice,
                   onBoundary: (wordIndex) => setHighlightedIndex(wordIndex),
                   onEnd: () => {
                     setHighlightedIndex(-1);
@@ -1765,8 +1812,26 @@
               }, word);
             })
           ),
-          React.createElement('div', { className: "flex flex-wrap justify-center gap-4 my-4" },
+          React.createElement('div', { className: "flex flex-wrap justify-center items-center gap-4 my-4" },
             React.createElement('button', { onClick: handleListenAgain, disabled: isSentenceDone || isSpeaking, className: "py-3 px-8 text-lg font-bold bg-purple-600 text-white rounded-xl shadow-md transform hover:-translate-y-1 transition-all disabled:bg-gray-400 disabled:cursor-not-allowed disabled:transform-none" }, "Nghe lại"),
+             React.createElement('div', { className: "relative" },
+                React.createElement('select', {
+                  value: selectedVoiceURI || '',
+                  onChange: (e) => setSelectedVoiceURI(e.target.value),
+                  disabled: voices.length === 0 || isSpeaking,
+                  'aria-label': "Chọn giọng đọc",
+                  className: "py-3 px-5 text-lg font-bold bg-white text-slate-800 rounded-xl shadow-md appearance-none border-2 border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all cursor-pointer disabled:bg-gray-200 disabled:cursor-not-allowed"
+                },
+                  voices.length === 0 ? 
+                    React.createElement('option', {}, "Tải giọng đọc...") :
+                    voices.map(voice => React.createElement('option', { key: voice.voiceURI, value: voice.voiceURI }, voice.name))
+                ),
+                React.createElement('div', { className: "pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700" },
+                  React.createElement('svg', { className: "fill-current h-4 w-4", xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 20 20" },
+                    React.createElement('path', { d: "M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" })
+                  )
+                )
+            ),
             React.createElement('button', { onClick: onChooseAnotherTopic, className: "py-3 px-8 text-lg font-bold bg-yellow-500 text-slate-800 rounded-xl shadow-md transform hover:-translate-y-1 transition-all" }, "Chọn chủ đề khác")
           ),
           React.createElement('div', { className: "text-xl font-bold text-purple-800 mt-4" }, `Điểm: ${score} | Hoàn thành: ${currentIndex}/${sentences.length}`)
