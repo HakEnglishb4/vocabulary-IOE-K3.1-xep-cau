@@ -9,6 +9,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- React & ReactDOM UMD -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
     <style>
       body {
         font-family: 'Nunito', sans-serif;
@@ -29,18 +37,24 @@
         to { opacity: 1; transform: translateY(0); }
       }
     </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/"
+  }
+}
+</script>
 </head>
 <body>
     <noscript>Bạn cần bật JavaScript để chạy ứng dụng này.</noscript>
     <div id="root"></div>
 
-    <script type="module">
-      import React from 'https://esm.sh/react@18.2.0';
-      import ReactDOM from 'https://esm.sh/react-dom@18.2.0/client';
-
+    <script type="text/babel">
       const { useState, useCallback, useMemo, useRef, useEffect } = React;
 
-      // --- From types.ts ---
+      // --- Types (Simulated) ---
       const GameState = {
         Start: 0,
         TopicSelection: 1,
@@ -48,7 +62,7 @@
         Congrats: 3,
       };
 
-      // --- From data/topics.ts ---
+      // --- Data ---
       const topics = {
         "School Places": [
             { en: "My school is big.", vi: "Trường của tôi rất to." },
@@ -1382,7 +1396,7 @@
         ]
       };
 
-      // --- From hooks/useSpeechSynthesis.ts ---
+      // --- Hooks ---
       const useSpeechSynthesis = () => {
         const [isSpeaking, setIsSpeaking] = useState(false);
         const [voices, setVoices] = useState([]);
@@ -1472,7 +1486,7 @@
             if (onEnd) onEnd();
           };
           
-          setTimeout(() => {
+          window.setTimeout(() => {
               window.speechSynthesis.speak(utterance);
           }, 50);
 
@@ -1481,7 +1495,7 @@
         return { speak, cancel, isSpeaking, voices };
       };
 
-      // --- From components/Fireworks.tsx ---
+      // --- Components ---
       const Fireworks = () => {
         const canvasRef = useRef(null);
         const animationFrameId = useRef();
@@ -1530,7 +1544,7 @@
             
             ctx.beginPath();
             ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-            ctx.fillStyle = `hsla(${p.color.match(/\\d+/)?.[0]}, 100%, 70%, ${p.life})`;
+            ctx.fillStyle = `hsla(${p.color.match(/\d+/)?.[0]}, 100%, 70%, ${p.life})`;
             ctx.fill();
           });
 
@@ -1550,48 +1564,54 @@
             
             const intervalIds = [];
             for(let i = 0; i < 5; i++) {
-                intervalIds.push(setTimeout(() => createExplosion(), Math.random() * 1000));
+                intervalIds.push(window.setTimeout(() => createExplosion(), Math.random() * 1000));
             }
-            const mainInterval = setInterval(createExplosion, 500 + Math.random() * 500);
+            const mainInterval = window.setInterval(createExplosion, 500 + Math.random() * 500);
             intervalIds.push(mainInterval);
             animate();
             return () => {
               window.removeEventListener('resize', handleResize);
               if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
-              intervalIds.forEach(clearInterval);
+              intervalIds.forEach(id => window.clearInterval(id));
               particles.current = [];
             };
           }
         }, []);
 
-        return React.createElement('canvas', { ref: canvasRef, className: "fixed top-0 left-0 w-full h-full pointer-events-none z-50" });
+        return <canvas ref={canvasRef} className="fixed top-0 left-0 w-full h-full pointer-events-none z-50" />;
       };
 
-      // --- From components/TopicCongratsScreen.tsx ---
       const TopicCongratsScreen = ({
         playerName, topicName, correctCount, totalCount, onPlayAgain, onChooseAnotherTopic,
       }) => {
-        return React.createElement('div', { className: "relative flex flex-col items-center gap-6 text-center p-4 animate-fade-in" },
-          React.createElement(Fireworks),
-          React.createElement('div', { className: "text-2xl sm:text-3xl md:text-4xl text-green-600 font-extrabold" },
-            React.createElement('p', null, "Chúc mừng ", React.createElement('strong', { className: "text-purple-600" }, playerName), "!"),
-            React.createElement('p', { className: "mt-2" }, `Bạn đã hoàn thành chủ đề "${topicName}".`)
-          ),
-          React.createElement('p', { className: "text-xl sm:text-2xl text-slate-700 font-semibold" }, `Bạn đã trả lời đúng ${correctCount}/${totalCount} câu.`),
-          React.createElement('div', { className: "flex flex-col sm:flex-row gap-4 mt-6 w-full max-w-md" },
-            React.createElement('button', {
-              onClick: onPlayAgain,
-              className: "w-full p-4 text-xl rounded-2xl bg-blue-500 text-white font-bold transform hover:scale-105 hover:bg-blue-600 transition-all shadow-lg"
-            }, "Chơi lại chủ đề này"),
-            React.createElement('button', {
-              onClick: onChooseAnotherTopic,
-              className: "w-full p-4 text-xl rounded-2xl bg-orange-500 text-white font-bold transform hover:scale-105 hover:bg-orange-600 transition-all shadow-lg"
-            }, "Chọn chủ đề khác")
-          )
+        return (
+          <div className="relative flex flex-col items-center gap-6 text-center p-4 animate-fade-in">
+            <Fireworks />
+            <div className="text-2xl sm:text-3xl md:text-4xl text-green-600 font-extrabold">
+              <p>Chúc mừng <strong className="text-purple-600">{playerName}</strong>!</p>
+              <p className="mt-2">Bạn đã hoàn thành chủ đề "{topicName}".</p>
+            </div>
+            <p className="text-xl sm:text-2xl text-slate-700 font-semibold">
+              Bạn đã trả lời đúng {correctCount}/{totalCount} câu.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 mt-6 w-full max-w-md">
+              <button
+                onClick={onPlayAgain}
+                className="w-full p-4 text-xl rounded-2xl bg-blue-500 text-white font-bold transform hover:scale-105 hover:bg-blue-600 transition-all shadow-lg"
+              >
+                Chơi lại chủ đề này
+              </button>
+              <button
+                onClick={onChooseAnotherTopic}
+                className="w-full p-4 text-xl rounded-2xl bg-orange-500 text-white font-bold transform hover:scale-105 hover:bg-orange-600 transition-all shadow-lg"
+              >
+                Chọn chủ đề khác
+              </button>
+            </div>
+          </div>
         );
       };
 
-      // --- From components/StartScreen.tsx ---
       const StartScreen = ({ onStart }) => {
         const [name, setName] = useState('');
         const handleStartClick = () => {
@@ -1605,43 +1625,49 @@
           if (event.key === 'Enter') handleStartClick();
         };
 
-        return React.createElement('div', { className: "flex flex-col items-center gap-6 animate-fade-in" },
-          React.createElement('input', {
-            type: "text",
-            value: name,
-            onChange: (e) => setName(e.target.value),
-            onKeyPress: handleKeyPress,
-            placeholder: "Nhập tên của bạn...",
-            className: "font-nunito text-lg sm:text-xl p-3 px-5 rounded-2xl border-2 border-purple-400 text-center w-full max-w-sm focus:outline-none focus:ring-4 focus:ring-purple-300 transition-shadow shadow-inner"
-          }),
-          React.createElement('button', {
-            onClick: handleStartClick,
-            className: "p-4 px-10 text-xl sm:text-2xl rounded-2xl w-full max-w-sm bg-green-500 text-white font-bold transform hover:scale-105 hover:bg-green-600 active:scale-100 transition-all shadow-lg hover:shadow-xl"
-          }, "Bắt đầu")
+        return (
+          <div className="flex flex-col items-center gap-6 animate-fade-in">
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Nhập tên của bạn..."
+              className="font-nunito text-lg sm:text-xl p-3 px-5 rounded-2xl border-2 border-purple-400 text-center w-full max-w-sm focus:outline-none focus:ring-4 focus:ring-purple-300 transition-shadow shadow-inner"
+            />
+            <button
+              onClick={handleStartClick}
+              className="p-4 px-10 text-xl sm:text-2xl rounded-2xl w-full max-w-sm bg-green-500 text-white font-bold transform hover:scale-105 hover:bg-green-600 active:scale-100 transition-all shadow-lg hover:shadow-xl"
+            >
+              Bắt đầu
+            </button>
+          </div>
         );
       };
 
-      // --- From components/TopicSelectionScreen.tsx ---
       const topicColors = [
         'from-red-500 to-red-600', 'from-blue-500 to-blue-600', 'from-green-500 to-green-600',
         'from-orange-500 to-orange-600', 'from-cyan-500 to-cyan-600', 'from-pink-500 to-pink-600',
       ];
       const TopicSelectionScreen = ({ topics, onSelectTopic }) => {
-        return React.createElement('div', { className: "flex flex-col items-center gap-4 w-full animate-fade-in" },
-          React.createElement('h2', { className: "text-2xl sm:text-3xl font-bold mb-4 text-slate-700" }, "Chọn một chủ đề để học:"),
-          React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-2 gap-5 w-full max-w-2xl" },
-            topics.map((topic, index) => (
-              React.createElement('button', {
-                key: topic,
-                onClick: () => onSelectTopic(topic),
-                className: `p-4 text-lg text-white font-bold rounded-2xl transform hover:-translate-y-1 transition-all shadow-lg hover:shadow-xl bg-gradient-to-br ${topicColors[index % topicColors.length]}`
-              }, topic)
-            ))
-          )
+        return (
+          <div className="flex flex-col items-center gap-4 w-full animate-fade-in">
+            <h2 className="text-2xl sm:text-3xl font-bold mb-4 text-slate-700">Chọn một chủ đề để học:</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 w-full max-w-2xl">
+              {topics.map((topic, index) => (
+                <button
+                  key={topic}
+                  onClick={() => onSelectTopic(topic)}
+                  className={`p-4 text-lg text-white font-bold rounded-2xl transform hover:-translate-y-1 transition-all shadow-lg hover:shadow-xl bg-gradient-to-br ${topicColors[index % topicColors.length]}`}
+                >
+                  {topic}
+                </button>
+              ))}
+            </div>
+          </div>
         );
       };
 
-      // --- From components/GameScreen.tsx ---
       const shuffle = (array) => {
         const newArray = [...array];
         for (let i = newArray.length - 1; i > 0; i--) {
@@ -1752,8 +1778,10 @@
             setPlayerAnswer([...playerAnswer, word]);
             setShuffledWords(prev => {
               const newArr = [...prev];
-              const wordIndex = newArr.findIndex((w, i) => w === word && i === index);
-              if (wordIndex > -1) newArr[wordIndex] = '';
+              // Only empty out the specific instance of the word clicked
+              if (newArr[index] === word) {
+                  newArr[index] = '';
+              }
               return newArr;
             });
             setMessage(null);
@@ -1787,58 +1815,97 @@
           }
         };
 
-        return React.createElement('div', { className: "flex flex-col items-center gap-2 w-full animate-fade-in" },
-          React.createElement('div', { className: "w-full text-center bg-purple-100/70 p-3 rounded-2xl" },
-            React.createElement('div', { className: "text-xl sm:text-2xl text-purple-900 italic font-semibold" }, `“${currentSentence?.vi}”`)
-          ),
-          React.createElement('div', { className: "text-2xl sm:text-3xl font-bold mt-2 mb-1 min-h-[100px] bg-violet-50 p-4 rounded-xl shadow-inner w-full flex items-center justify-center flex-wrap gap-x-2.5 gap-y-3" },
-            isSentenceDone ? 
-              currentSentence.en.split(' ').map((word, index) => React.createElement('span', { key: index, className: `inline-block px-1 py-1 rounded-md transition-all duration-200 ${highlightedIndex === index ? 'bg-yellow-300 text-black scale-110' : 'bg-transparent text-slate-800 scale-100'}`}, word)) :
-              currentWords.map((_, index) => React.createElement('div', { key: index, className: `h-16 w-24 flex items-center justify-center text-xl font-semibold p-2 rounded-lg ${playerAnswer[index] ? 'bg-purple-200 border-2 border-purple-500 text-purple-900' : 'bg-slate-200 border-2 border-dashed border-slate-400'}`}, playerAnswer[index]))
-          ),
-          React.createElement('div', { className: "min-h-[30px] text-xl font-bold" },
-            message && React.createElement('p', { className: `${message.type === 'success' ? 'text-green-600' : 'text-red-500'}` }, message.text)
-          ),
-          React.createElement('div', { className: "flex flex-wrap justify-center gap-3 mt-1 mb-4 w-full min-h-[120px]" },
-            shuffledWords.map((word, index) => {
-              const isUsed = word === '';
-              const isIncorrect = incorrectWord === `${word}-${index}`;
-              const pastelColor = pastelColors[index % pastelColors.length];
-              return React.createElement('button', {
-                key: index,
-                onClick: () => handleWordClick(word, index),
-                disabled: isUsed || isSentenceDone,
-                className: `text-xl font-bold py-3 px-5 rounded-xl border-b-4 transition-all duration-150 transform active:translate-y-0.5 active:border-b-2 ${isUsed ? 'opacity-0 pointer-events-none' : 'opacity-100'} ${isIncorrect ? 'border-red-500 animate-shake bg-red-100 text-red-600' : `${pastelColor} hover:-translate-y-1 hover:shadow-md`} ${isSentenceDone ? 'cursor-not-allowed' : ''}`
-              }, word);
-            })
-          ),
-          React.createElement('div', { className: "flex flex-wrap justify-center items-center gap-4 my-4" },
-            React.createElement('button', { onClick: handleListenAgain, disabled: isSentenceDone || isSpeaking, className: "py-3 px-8 text-lg font-bold bg-purple-600 text-white rounded-xl shadow-md transform hover:-translate-y-1 transition-all disabled:bg-gray-400 disabled:cursor-not-allowed disabled:transform-none" }, "Nghe lại"),
-             React.createElement('div', { className: "relative" },
-                React.createElement('select', {
-                  value: selectedVoiceURI || '',
-                  onChange: (e) => setSelectedVoiceURI(e.target.value),
-                  disabled: voices.length === 0 || isSpeaking,
-                  'aria-label': "Chọn giọng đọc",
-                  className: "py-3 px-5 text-lg font-bold bg-white text-slate-800 rounded-xl shadow-md appearance-none border-2 border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all cursor-pointer disabled:bg-gray-200 disabled:cursor-not-allowed"
-                },
-                  voices.length === 0 ? 
-                    React.createElement('option', {}, "Tải giọng đọc...") :
-                    voices.map(voice => React.createElement('option', { key: voice.voiceURI, value: voice.voiceURI }, voice.name))
-                ),
-                React.createElement('div', { className: "pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700" },
-                  React.createElement('svg', { className: "fill-current h-4 w-4", xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 20 20" },
-                    React.createElement('path', { d: "M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" })
-                  )
-                )
-            ),
-            React.createElement('button', { onClick: onChooseAnotherTopic, className: "py-3 px-8 text-lg font-bold bg-yellow-500 text-slate-800 rounded-xl shadow-md transform hover:-translate-y-1 transition-all" }, "Chọn chủ đề khác")
-          ),
-          React.createElement('div', { className: "text-xl font-bold text-purple-800 mt-4" }, `Điểm: ${score} | Hoàn thành: ${currentIndex}/${sentences.length}`)
+        return (
+          <div className="flex flex-col items-center gap-2 w-full animate-fade-in">
+            <div className="w-full text-center bg-purple-100/70 p-3 rounded-2xl">
+              <div className="text-xl sm:text-2xl text-purple-900 italic font-semibold">“{currentSentence?.vi}”</div>
+            </div>
+            
+            <div className="text-2xl sm:text-3xl font-bold mt-2 mb-1 min-h-[100px] bg-violet-50 p-4 rounded-xl shadow-inner w-full flex items-center justify-center flex-wrap gap-x-2.5 gap-y-3">
+              {isSentenceDone ? 
+                currentSentence.en.split(' ').map((word, index) => (
+                  <span key={index} className={`inline-block px-1 py-1 rounded-md transition-all duration-200 ${highlightedIndex === index ? 'bg-yellow-300 text-black scale-110' : 'bg-transparent text-slate-800 scale-100'}`}>
+                      {word}
+                  </span>
+                )) :
+                currentWords.map((_, index) => (
+                  <div key={index} className={`h-16 w-24 flex items-center justify-center text-xl font-semibold p-2 rounded-lg ${playerAnswer[index] ? 'bg-purple-200 border-2 border-purple-500 text-purple-900' : 'bg-slate-200 border-2 border-dashed border-slate-400'}`}>
+                      {playerAnswer[index]}
+                  </div>
+                ))
+              }
+            </div>
+
+            <div className="min-h-[30px] text-xl font-bold">
+              {message && (
+                  <p className={`${message.type === 'success' ? 'text-green-600' : 'text-red-500'}`}>
+                      {message.text}
+                  </p>
+              )}
+            </div>
+
+            <div className="flex flex-wrap justify-center gap-3 mt-1 mb-4 w-full min-h-[120px]">
+              {shuffledWords.map((word, index) => {
+                const isUsed = word === '';
+                const isIncorrect = incorrectWord === `${word}-${index}`;
+                const pastelColor = pastelColors[index % pastelColors.length];
+                return (
+                  <button
+                    key={index}
+                    onClick={() => handleWordClick(word, index)}
+                    disabled={isUsed || isSentenceDone}
+                    className={`text-xl font-bold py-3 px-5 rounded-xl border-b-4 transition-all duration-150 transform active:translate-y-0.5 active:border-b-2 
+                      ${isUsed ? 'opacity-0 pointer-events-none' : 'opacity-100'} 
+                      ${isIncorrect ? 'border-red-500 animate-shake bg-red-100 text-red-600' : `${pastelColor} hover:-translate-y-1 hover:shadow-md`} 
+                      ${isSentenceDone ? 'cursor-not-allowed' : ''}`
+                    }
+                  >
+                    {word}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex flex-wrap justify-center items-center gap-4 my-4">
+              <button onClick={handleListenAgain} disabled={isSentenceDone || isSpeaking} className="py-3 px-8 text-lg font-bold bg-purple-600 text-white rounded-xl shadow-md transform hover:-translate-y-1 transition-all disabled:bg-gray-400 disabled:cursor-not-allowed disabled:transform-none">
+                  Nghe lại
+              </button>
+              
+               <div className="relative">
+                  <select
+                    value={selectedVoiceURI || ''}
+                    onChange={(e) => setSelectedVoiceURI(e.target.value)}
+                    disabled={voices.length === 0 || isSpeaking}
+                    aria-label="Chọn giọng đọc"
+                    className="py-3 px-5 text-lg font-bold bg-white text-slate-800 rounded-xl shadow-md appearance-none border-2 border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all cursor-pointer disabled:bg-gray-200 disabled:cursor-not-allowed"
+                  >
+                    {voices.length === 0 ? (
+                      <option>Tải giọng đọc...</option>
+                    ) : (
+                      voices.map(voice => (
+                          <option key={voice.voiceURI} value={voice.voiceURI}>{voice.name}</option>
+                      ))
+                    )}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                      <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                    </svg>
+                  </div>
+              </div>
+
+              <button onClick={onChooseAnotherTopic} className="py-3 px-8 text-lg font-bold bg-yellow-500 text-slate-800 rounded-xl shadow-md transform hover:-translate-y-1 transition-all">
+                  Chọn chủ đề khác
+              </button>
+            </div>
+            
+            <div className="text-xl font-bold text-purple-800 mt-4">
+              Điểm: {score} | Hoàn thành: {currentIndex}/{sentences.length}
+            </div>
+          </div>
         );
       };
-      
-      // --- From App.tsx ---
+
       const App = () => {
         const [gameState, setGameState] = useState(GameState.Start);
         const [playerName, setPlayerName] = useState('');
@@ -1880,38 +1947,41 @@
         const renderScreen = () => {
           switch (gameState) {
             case GameState.Start:
-              return React.createElement(StartScreen, { onStart: handleStart });
+              return <StartScreen onStart={handleStart} />;
             case GameState.TopicSelection:
-              return React.createElement(TopicSelectionScreen, { topics: Object.keys(topics), onSelectTopic: handleSelectTopic });
+              return <TopicSelectionScreen topics={Object.keys(topics)} onSelectTopic={handleSelectTopic} />;
             case GameState.Playing:
-              return React.createElement(GameScreen, { key: selectedTopic, sentences: topicSentences, onTopicComplete: handleTopicComplete, onChooseAnotherTopic: handleChooseAnotherTopic });
+              return <GameScreen key={selectedTopic} sentences={topicSentences} onTopicComplete={handleTopicComplete} onChooseAnotherTopic={handleChooseAnotherTopic} />;
             case GameState.Congrats:
-              return React.createElement(TopicCongratsScreen, {
-                  playerName: playerName,
-                  topicName: selectedTopic,
-                  correctCount: lastScore.correct,
-                  totalCount: lastScore.total,
-                  onPlayAgain: handlePlayAgain,
-                  onChooseAnotherTopic: handleChooseAnotherTopic,
-                });
+              return (
+                  <TopicCongratsScreen
+                    playerName={playerName}
+                    topicName={selectedTopic}
+                    correctCount={lastScore.correct}
+                    totalCount={lastScore.total}
+                    onPlayAgain={handlePlayAgain}
+                    onChooseAnotherTopic={handleChooseAnotherTopic}
+                  />
+              );
             default:
-              return React.createElement(StartScreen, { onStart: handleStart });
+              return <StartScreen onStart={handleStart} />;
           }
         };
 
-        return React.createElement('div', { className: "bg-gradient-to-br from-violet-100 to-sky-100 min-h-screen w-full flex justify-center items-center p-4" },
-          React.createElement('main', { className: "container mx-auto text-center p-6 max-w-4xl w-full bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl shadow-violet-200" },
-            React.createElement('h1', { className: "text-3xl sm:text-4xl md:text-5xl font-extrabold text-violet-600 mb-1 [text-shadow:_1px_2px_2px_rgb(0_0_0_/_10%)]" }, "NGHE VÀ XẾP TỪ THÀNH CÂU"),
-            React.createElement('h2', { className: "text-xl sm:text-2xl md:text-3xl text-slate-500 font-semibold mb-5" }, "(Hỏi & Đáp)"),
-            renderScreen()
-          )
+        return (
+          <div className="bg-gradient-to-br from-violet-100 to-sky-100 min-h-screen w-full flex justify-center items-center p-4">
+            <main className="container mx-auto text-center p-6 max-w-4xl w-full bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl shadow-violet-200">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-violet-600 mb-1 [text-shadow:_1px_2px_2px_rgb(0_0_0_/_10%)]">NGHE VÀ XẾP TỪ THÀNH CÂU</h1>
+              <h2 className="text-xl sm:text-2xl md:text-3xl text-slate-500 font-semibold mb-5">(Hỏi & Đáp)</h2>
+              {renderScreen()}
+            </main>
+          </div>
         );
       };
 
-      // --- From index.tsx ---
       const rootElement = document.getElementById('root');
       const root = ReactDOM.createRoot(rootElement);
-      root.render(React.createElement(App));
+      root.render(<App />);
     </script>
 </body>
 </html>
